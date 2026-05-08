@@ -1,0 +1,197 @@
+---
+name: tektona-cli
+description: Use when the user mentions Tektona, asks to create or manage a remote sandbox / dev environment, needs to SSH or VNC into a sandbox, mint a preview URL for a forwarded port, configure network policy, or runs `tektona` or `tektonactl` commands.
+---
+
+# Tektona CLI
+
+## Overview
+
+`tektona` is the CLI for the Tektona agentic development platform. It manages
+remote sandboxes and provides SSH, VNC, and HTTP preview access. Inside
+a running sandbox, a second binary — `tektonactl` — drives
+the desktop, named PTY sessions, and sandbox introspection.
+
+**RELATED SKILL:** Use `tektonactl` for anything happening *inside* a
+sandbox — computer use (screenshot, click, type, clipboard) and named
+PTY sessions. Reach it from outside with
+`tektona ssh <id> -- tektonactl ...`.
+
+## Install
+
+```sh
+npm install -g @tektona/cli         # cross-platform
+brew install tektona-ai/tap/tektona # macOS
+```
+
+Check it works: `tektona version`.
+
+## Authenticate
+
+```sh
+tektona api-key set <KEY>      # writes ~/.config/tektona/api_key
+tektona api-key show
+```
+
+Override per-invocation with `--api-key` or `TEKTONA_API_KEY`. Override the
+API URL with `--api-url` or `TEKTONA_API_URL`.
+
+## Set context (org + project)
+
+Almost every command runs in the active org/project context. Set it once:
+
+```sh
+tektona ctx set <org|personal|p> <project>
+tektona ctx show
+tektona ctx list
+```
+
+Override per-call with `--org` / `--project`.
+
+## Quick reference — `tektona`
+
+| Task | Command |
+|---|---|
+| Create sandbox | `tektona sandbox create -i <image> [--cpu N --memory N --disk N --env K=V --network <policy>]` |
+| Create + SSH in | `tektona s c -i ubuntu:24.04 --ssh` |
+| Create + VNC in browser | `tektona s c -i <image> --vnc --browser` |
+| List active | `tektona sandbox ls` |
+| List all (incl. terminated) | `tektona sandbox ls -A` |
+| Filter by state | `tektona sandbox ls --state running` |
+| Show details | `tektona sandbox info <id>` |
+| Pause | `tektona sandbox pause <id> [--mode hibernate\|suspend]` |
+| Resume | `tektona sandbox resume <id>` |
+| Fork (filesystem snapshot) | `tektona sandbox fork <id> [--mode filesystem\|full]` |
+| Delete | `tektona sandbox delete <id...>` / `--all` / `-y` |
+| SSH | `tektona ssh <id> [-- <command>]` |
+| One-shot exec | `tektona ssh <id> -- <command>` |
+| Print SSH command | `tektona ssh <id> --print` |
+| Port forward (sandbox → laptop) | ``eval "$(tektona ssh <id> --print)" -L 8080:localhost:3000 -N`` |
+| Port forward (laptop → sandbox) | ``eval "$(tektona ssh <id> --print)" -R 5432:localhost:5432 -N`` |
+| VNC | `tektona vnc <id> [--browser] [--start-desktop]` |
+| Start desktop | `tektona sandbox start-desktop <id>` |
+| Screenshot to file | `tektona sandbox screenshot <id> -o out.png` |
+| Preview URL for port | `tektona sandbox preview <id> <port> [--ttl 1h] [--open]` |
+| Revoke preview | `tektona sandbox revoke-preview <id> <token>` |
+| Lifecycle (auto-pause/destroy) | `tektona sandbox lifecycle <id> --auto-pause 15m --auto-destroy 30d` |
+| Show network policies | `tektona network-policy ls` (alias `np`) |
+| Default network policy | `tektona network-policy default --set <name>` |
+
+Add `-o json` to most commands for machine-readable output. Aliases:
+`sandbox` → `s`, `create` → `c`/`new`, `delete` → `rm`/`d`/`destroy`,
+`network-policy` → `np`, `screenshot` → `ss`.
+
+## Choosing an image
+
+Any OCI image works (`-i ubuntu:24.04`, `-i node:22`, `-i python:3.12`,
+or your team's own image). **Floating tags like `:latest` are rejected**
+— always pin to a specific tag or to an `image@sha256:<digest>` ref so
+snapshot caches stay deterministic. If the user asks for "the latest X"
+and you don't have a tag, look up the highest-numbered tag on the image's
+registry page (or use `crane ls <repo>` / `docker buildx imagetools
+inspect <repo>`) and pin to that.
+
+For desktop, VNC, and `tektonactl desktop` workflows, **recommend the
+official desktop image** unless the user specifies their own:
+
+```sh
+ghcr.io/tektona-ai/desktop-x11:<tag>
+```
+
+Look up the latest version at
+<https://github.com/tektona-ai/desktop-x11/pkgs/container/desktop-x11>
+before suggesting a command. As of the most recent skill release the
+newest tag is `0.3.2`, but verify — the registry may have rolled
+forward.
+
+## Common workflows
+
+**Spin up a fresh dev box and drop into it:**
+```sh
+tektona sandbox create -i ubuntu:24.04 --cpu 4 --memory 4 --ssh
+```
+Use `--network tektona/open` if you need unrestricted egress (default policy
+restricts egress).
+
+**Spin up a desktop sandbox and open VNC:**
+```sh
+tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:0.3.2 --vnc --browser
+```
+
+**Run a server in a sandbox and share it:**
+```sh
+ID=$(tektona s c -i node:22 -o json | jq -r .id)
+tektona ssh "$ID" -- 'cd /workspace && npm start &'
+tektona sandbox preview "$ID" 3000 --ttl 4h --open
+```
+Token-bearing URL by default. Pass `--public` at create time to get a
+durable token-less URL via `sandbox preview` instead.
+
+**Forward a sandbox port to your laptop (or vice versa):**
+```sh
+# Sandbox port 3000 → laptop port 8080. -N keeps the tunnel up without a shell.
+eval "$(tektona ssh <id> --print)" -L 8080:localhost:3000 -N
+
+# Laptop port 5432 (e.g. local Postgres) reachable inside the sandbox at localhost:5432.
+eval "$(tektona ssh <id> --print)" -R 5432:localhost:5432 -N
+```
+`tektona ssh --print` emits the resolved `ssh` invocation; `eval` runs it
+with extra flags appended. Use `-L` to pull a sandbox port to your
+machine, `-R` to push a local service into the sandbox. Run in the
+background with `&` if you need the shell back. For HTTP-only ports a
+shareable URL is usually simpler — see `tektona sandbox preview`.
+
+**Snapshot, branch, throw away:**
+```sh
+tektona sandbox fork <id> --mode filesystem --ssh   # cheap branch
+tektona sandbox fork <id> --mode full --ssh         # includes RAM
+tektona sandbox delete <fork-id> -y
+```
+
+**Pause when idle, auto-destroy stale boxes:**
+```sh
+tektona sandbox lifecycle <id> --auto-pause 15m --auto-destroy 7d
+```
+
+## Inside the sandbox: `tektonactl`
+
+Once SSHed in, `tektonactl` is on `PATH` and drives the desktop, PTY
+sessions, and sandbox introspection. From outside the sandbox, wrap it:
+
+```sh
+tektona ssh <id> -- tektonactl info
+tektona ssh <id> -- tektonactl desktop screenshot -o /tmp/s.png
+tektona ssh <id> -- tektonactl pty list
+```
+
+For the full command surface — `desktop` (screenshot, click, type,
+clipboard, windows) and `pty` (named long-running sessions) — load the
+`tektonactl` skill.
+
+## Common mistakes
+
+- **Forgetting to set context.** `tektona ctx set <org> <project>` once, or
+  pass `--org`/`--project` per call. Most "not found" errors are a wrong
+  context, not a missing resource.
+- **Egress blocked unexpectedly.** Default network policy is restrictive.
+  Either pass `--network tektona/open` at create, or use
+  `tektona network-policy ls` to find a policy that allows what you need.
+- **Using `:latest` as the image tag.** The API rejects floating tags.
+  Pin to a specific tag, or use `image@sha256:<digest>`.
+- **Treating `--public` and `preview` as interchangeable.** `--public` at
+  create time gives durable canonical URLs. `sandbox preview` without
+  `--public` mints a bearer-token URL (default 12h, max 24h). Pick one.
+- **Editing files inside the sandbox via `tektona ssh -- vim`.** Works, but
+  for AI-driven edits prefer `tektona ssh -- cat/sed/tee` or rsync over the
+  printed SSH command (`tektona ssh <id> --print`).
+- **Using `tektona sandbox vnc` and `tektona vnc`.** Both exist (the first
+  is an alias under `sandbox`); pick one for muscle memory.
+- **Calling `tektonactl` from your laptop.** It only exists inside the
+  sandbox. Wrap it: `tektona ssh <id> -- tektonactl ...`.
+
+## When NOT to use this skill
+
+- Building or modifying the Tektona platform itself (control plane, runner,
+  proto definitions). That's repository code, not CLI usage.
+- Programmatic access from production services — use the platform HTTP API
+  directly instead of shelling out to `tektona`.

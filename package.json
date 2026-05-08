@@ -1,0 +1,26 @@
+{
+  "name": "@tektona/cli-skill",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Agent skills for the Tektona CLI and the in-sandbox tektonactl tool. Distributed via GitHub for `npx skills add`.",
+  "homepage": "https://tektona.ai",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tektona-ai/tektona.git",
+    "directory": "internal/tektona-cli/skill"
+  },
+  "keywords": [
+    "agent-skill",
+    "claude-code",
+    "tektona",
+    "sandbox",
+    "cli"
+  ],
+  "agents": {
+    "skills": [
+      "./skills/tektona-cli",
+      "./skills/tektonactl"
+    ]
+  }
+}
