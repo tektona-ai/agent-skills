@@ -41,8 +41,10 @@ Look up the newest tag at
 <https://github.com/tektona-ai/desktop-x11/pkgs/container/desktop-x11>
 before suggesting a command — the registry may have rolled forward
 since this skill was last published. As of the most recent skill
-release the newest tag is `0.3.2`. Floating tags like `:latest` are
-rejected by the API; pin to a tag or to `image@sha256:<digest>`.
+release the newest tag is `0.3.2`. The image ref must be deterministic
+— a real tag, a `@sha256:...` digest, or both. Bare `:latest` (no
+digest) is rejected because it floats; bare `image@sha256:...` digests
+are accepted.
 
 ## When NOT to use
 

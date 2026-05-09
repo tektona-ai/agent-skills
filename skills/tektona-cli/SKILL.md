@@ -59,6 +59,7 @@ Override per-call with `--org` / `--project`.
 | List all (incl. terminated) | `tektona sandbox ls -A` |
 | Filter by state | `tektona sandbox ls --state running` |
 | Show details | `tektona sandbox info <id>` |
+| Wait for state | `tektona sandbox wait <id> [--state running] [--timeout 5m]` |
 | Pause | `tektona sandbox pause <id> [--mode hibernate\|suspend]` |
 | Resume | `tektona sandbox resume <id>` |
 | Fork (filesystem snapshot) | `tektona sandbox fork <id> [--mode filesystem\|full]` |
@@ -84,12 +85,25 @@ Add `-o json` to most commands for machine-readable output. Aliases:
 ## Choosing an image
 
 Any OCI image works (`-i ubuntu:24.04`, `-i node:22`, `-i python:3.12`,
-or your team's own image). **Floating tags like `:latest` are rejected**
-— always pin to a specific tag or to an `image@sha256:<digest>` ref so
-snapshot caches stay deterministic. If the user asks for "the latest X"
-and you don't have a tag, look up the highest-numbered tag on the image's
-registry page (or use `crane ls <repo>` / `docker buildx imagetools
-inspect <repo>`) and pin to that.
+or your team's own image). The reference must be **deterministic** —
+i.e. it must not float over time. A non-`latest` tag, a `@sha256:...`
+digest, or both will satisfy that. The only rejected shapes are the
+ones that float:
+
+```text
+image:tag                        ✓
+image:tag@sha256:<digest>        ✓  tag + exact-build pin
+image@sha256:<digest>            ✓  digest only (most deterministic, OCI-standard)
+image:latest@sha256:<digest>     ✓  :latest is fine when pinned by digest
+image:latest                     ✗  bare floating tag
+image                            ✗  no tag and no digest
+```
+
+If the user asks for "the latest X" and you don't have a tag, look up
+the highest-numbered tag on the image's registry page (or use `crane
+ls <repo>` / `docker buildx imagetools inspect <repo>`) and pin to
+that. If you only have a digest from a registry inspection, the bare
+`image@sha256:...` form is the cleanest pin and is fully accepted.
 
 For desktop, VNC, and `tektonactl desktop` workflows, **recommend the
 official desktop image** unless the user specifies their own:
@@ -117,6 +131,22 @@ restricts egress).
 ```sh
 tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:0.3.2 --vnc --browser
 ```
+
+**Wait for a sandbox to be ready:**
+`create` returns immediately; the sandbox transitions
+`scheduling` → `building_image` → `running` asynchronously. Either pass
+`--ssh` / `--vnc` to `create` (which block until the connection is up),
+or use `tektona sandbox wait`:
+```sh
+ID=$(tektona sandbox create -i ubuntu:24.04 -o json | jq -r .id)
+tektona sandbox wait "$ID"                                # default: state=running, timeout=5m
+tektona sandbox wait "$ID" --state running --timeout 3m
+tektona sandbox wait "$ID" --state paused                 # also works for pause/resume flows
+```
+`wait` exits 0 on success, non-zero on timeout, and **fails fast** if
+the sandbox enters a terminal state (`error`, `deleted`, `deleting`)
+while waiting for a non-terminal target — so the agent doesn't hang on
+broken images.
 
 **Run a server in a sandbox and share it:**
 ```sh
@@ -176,8 +206,13 @@ clipboard, windows) and `pty` (named long-running sessions) — load the
 - **Egress blocked unexpectedly.** Default network policy is restrictive.
   Either pass `--network tektona/open` at create, or use
   `tektona network-policy ls` to find a policy that allows what you need.
-- **Using `:latest` as the image tag.** The API rejects floating tags.
-  Pin to a specific tag, or use `image@sha256:<digest>`.
+- **Using bare `:latest` as the image ref.** Floating tags are
+  rejected — pin with a digest (`image:latest@sha256:<digest>`) or use
+  a real version tag. Tag-less digests (`image@sha256:<digest>`) are
+  fine; that's the most deterministic pin you can give.
+- **Inventing flags that don't exist on `wait`.** Real flags are
+  `--state` (default `running`), `--timeout` (default `5m`), and
+  `--interval` (default `2s`). Anything else will be rejected.
 - **Treating `--public` and `preview` as interchangeable.** `--public` at
   create time gives durable canonical URLs. `sandbox preview` without
   `--public` mints a bearer-token URL (default 12h, max 24h). Pick one.

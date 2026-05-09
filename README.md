@@ -59,6 +59,3 @@ Each `SKILL.md` declares its trigger conditions in YAML frontmatter; the
 two skills cross-reference each other so an agent only loads what's
 relevant to the task at hand.
 
-## Releasing
-
-See [RELEASING.md](RELEASING.md).
