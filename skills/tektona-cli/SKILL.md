@@ -57,6 +57,7 @@ Override per-call with `--org` / `--project`.
 | Create + VNC in browser | `tektona s c -i <image> --vnc --browser` |
 | List active | `tektona sandbox ls` |
 | List all (incl. terminated) | `tektona sandbox ls -A` |
+| List with full digests + resources | `tektona sandbox ls -w` |
 | Filter by state | `tektona sandbox ls --state running` |
 | Show details | `tektona sandbox info <id>` |
 | Wait for state | `tektona sandbox wait <id> [--state running] [--timeout 5m]` |
@@ -71,16 +72,19 @@ Override per-call with `--org` / `--project`.
 | Port forward (laptop → sandbox) | ``eval "$(tektona ssh <id> --print)" -R 5432:localhost:5432 -N`` |
 | VNC | `tektona vnc <id> [--browser] [--start-desktop]` |
 | Start desktop | `tektona sandbox start-desktop <id>` |
+| Stop desktop | `tektona sandbox stop-desktop <id>` |
 | Screenshot to file | `tektona sandbox screenshot <id> -o out.png` |
 | Preview URL for port | `tektona sandbox preview <id> <port> [--ttl 1h] [--open]` |
 | Revoke preview | `tektona sandbox revoke-preview <id> <token>` |
-| Lifecycle (auto-pause/destroy) | `tektona sandbox lifecycle <id> --auto-pause 15m --auto-destroy 30d` |
+| Show lifecycle config | `tektona sandbox lifecycle <id>` (no flags) |
+| Set lifecycle | `tektona sandbox lifecycle <id> --auto-pause 15m --auto-pause-mode suspend --auto-destroy 30d [--no-auto-resume]` |
 | Show network policies | `tektona network-policy ls` (alias `np`) |
+| Inspect a network policy | `tektona network-policy info <name>` |
 | Default network policy | `tektona network-policy default --set <name>` |
 
 Add `-o json` to most commands for machine-readable output. Aliases:
 `sandbox` → `s`, `create` → `c`/`new`, `delete` → `rm`/`d`/`destroy`,
-`network-policy` → `np`, `screenshot` → `ss`.
+`network-policy` → `np`, `screenshot` → `ss`, `revoke-preview` → `rp`.
 
 ## Choosing an image
 
@@ -180,8 +184,14 @@ tektona sandbox delete <fork-id> -y
 
 **Pause when idle, auto-destroy stale boxes:**
 ```sh
+tektona sandbox lifecycle <id>                                  # show current config
 tektona sandbox lifecycle <id> --auto-pause 15m --auto-destroy 7d
+tektona sandbox lifecycle <id> --auto-pause 15m --auto-pause-mode suspend --no-auto-resume
 ```
+With no flags, `lifecycle` prints the current config instead of
+updating — it's both the getter and the setter. `--auto-pause-mode`
+(`hibernate`|`suspend`, default `hibernate`) picks how the idle pause
+is taken; `--no-auto-resume` keeps it paused until explicitly resumed.
 
 ## Inside the sandbox: `tektonactl`
 
