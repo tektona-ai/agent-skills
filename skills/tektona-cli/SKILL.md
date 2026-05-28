@@ -70,6 +70,11 @@ Override per-call with `--org` / `--project`.
 | Print SSH command | `tektona ssh <id> --print` |
 | Port forward (sandbox → laptop) | ``eval "$(tektona ssh <id> --print)" -L 8080:localhost:3000 -N`` |
 | Port forward (laptop → sandbox) | ``eval "$(tektona ssh <id> --print)" -R 5432:localhost:5432 -N`` |
+| Upload file(s) | `tektona sandbox cp <local> <id>:/abs/path` |
+| Upload to image WORKDIR | `tektona sandbox cp <local> <id>:`  (bare `<id>:` resolves against the image's WORKDIR) |
+| Download file(s) | `tektona sandbox cp <id>:/abs/path <local>` |
+| Copy a tree (parallel) | `tektona sandbox cp -r ./dir <id>:/dst/` (default 3 workers, cap 6) |
+| Stream stdin/stdout | `tar c ./src \| tektona sandbox cp - <id>:/tmp/src.tar` / `tektona sandbox cp <id>:/path -` |
 | VNC | `tektona vnc <id> [--browser] [--start-desktop]` |
 | Start desktop | `tektona sandbox start-desktop <id>` |
 | Stop desktop | `tektona sandbox stop-desktop <id>` |
@@ -182,6 +187,28 @@ tektona sandbox fork <id> --mode full --ssh         # includes RAM
 tektona sandbox delete <fork-id> -y
 ```
 
+**Move files in and out:**
+```sh
+# upload a file to an absolute path
+tektona sandbox cp ./report.pdf <id>:/tmp/
+
+# upload to the image's WORKDIR (bare host: shorthand)
+tektona sandbox cp ./report.pdf <id>:
+
+# download a remote file to CWD
+tektona sandbox cp <id>:/var/log/app.log ./
+
+# recursive tree copy, parallel by default (3 workers)
+tektona sandbox cp -r ./build/ <id>:/srv/app/
+
+# bigger trees: bump workers (capped at 6; higher values are clamped with a warning)
+tektona sandbox cp --workers=6 -r ./large-dataset/ <id>:/data/
+```
+Exit codes: `0` clean, `1` per-file errors, `2` transport drop, `130`
+interrupted. Use `--fail-fast` to abort the run on the first per-file
+error. For scripting, pipe `--output json` to get one structured event
+per line.
+
 **Pause when idle, auto-destroy stale boxes:**
 ```sh
 tektona sandbox lifecycle <id>                                  # show current config
@@ -227,8 +254,17 @@ clipboard, windows) and `pty` (named long-running sessions) — load the
   create time gives durable canonical URLs. `sandbox preview` without
   `--public` mints a bearer-token URL (default 12h, max 24h). Pick one.
 - **Editing files inside the sandbox via `tektona ssh -- vim`.** Works, but
-  for AI-driven edits prefer `tektona ssh -- cat/sed/tee` or rsync over the
-  printed SSH command (`tektona ssh <id> --print`).
+  for AI-driven edits prefer `tektona ssh -- cat/sed/tee` or `tektona
+  sandbox cp` to push the file in.
+- **Reaching for `scp`/`rsync` to move files.** Use `tektona sandbox cp`
+  instead — it goes through the same brokered access as `tektona ssh`,
+  supports the bare `<id>:` WORKDIR shorthand, and parallelises by
+  default. Legacy `scp -O` (pre-OpenSSH-9.0) is not supported by the
+  access gateway; modern `scp` works over SFTP but the CLI command is
+  the blessed path.
+- **Using a sandbox-id prefix.** Refs must include the full 26-character
+  ULID — `01JQ:/path` is rejected. Copy/paste the full id from
+  `tektona sandbox ls`.
 - **Using `tektona sandbox vnc` and `tektona vnc`.** Both exist (the first
   is an alias under `sandbox`); pick one for muscle memory.
 - **Calling `tektonactl` from your laptop.** It only exists inside the
