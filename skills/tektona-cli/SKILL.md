@@ -41,9 +41,19 @@ API URL with `--api-url` or `TEKTONA_API_URL`.
 Almost every command runs in the active org/project context. Set it once:
 
 ```sh
-tektona ctx set <org|personal|p> <project>
+tektona ctx set <org/project>      # e.g. acme-corp/backend (or two args: acme-corp backend)
 tektona ctx show
-tektona ctx list
+tektona ctx list                   # every org/project the key can reach
+```
+
+List your projects across every org you belong to (non-interactive),
+then copy a `CONTEXT` value straight into `ctx set`:
+
+```sh
+tektona project ls                 # all your projects, across every org (alias: p ls)
+tektona project ls --org acme-corp # filter to one org
+tektona project ls -o json         # machine-readable
+tektona ctx set acme-corp/backend  # paste a value from the CONTEXT column
 ```
 
 Override per-call with `--org` / `--project`.
@@ -52,6 +62,8 @@ Override per-call with `--org` / `--project`.
 
 | Task | Command |
 |---|---|
+| List projects (all orgs) | `tektona project ls` (alias `p ls`) `[--org <slug>] [--wide] [-o json]` |
+| Switch context | `tektona ctx set <org/project>` (copy a CONTEXT value from `project ls`) |
 | Create sandbox | `tektona sandbox create -i <image> [--cpu N --memory N --disk N --env K=V --network <policy>]` |
 | Create + SSH in | `tektona s c -i ubuntu:24.04 --ssh` |
 | Create + VNC in browser | `tektona s c -i <image> --vnc --browser` |
@@ -88,8 +100,9 @@ Override per-call with `--org` / `--project`.
 | Default network policy | `tektona network-policy default --set <name>` |
 
 Add `-o json` to most commands for machine-readable output. Aliases:
-`sandbox` → `s`, `create` → `c`/`new`, `delete` → `rm`/`d`/`destroy`,
-`network-policy` → `np`, `screenshot` → `ss`, `revoke-preview` → `rp`.
+`sandbox` → `s`, `project` → `p`/`proj`/`projects`, `create` → `c`/`new`,
+`delete` → `rm`/`d`/`destroy`, `network-policy` → `np`, `screenshot` → `ss`,
+`revoke-preview` → `rp`. `ls` and `list` are interchangeable.
 
 ## Choosing an image
 
@@ -237,9 +250,10 @@ clipboard, windows) and `pty` (named long-running sessions) — load the
 
 ## Common mistakes
 
-- **Forgetting to set context.** `tektona ctx set <org> <project>` once, or
-  pass `--org`/`--project` per call. Most "not found" errors are a wrong
-  context, not a missing resource.
+- **Forgetting to set context.** `tektona ctx set <org/project>` once, or
+  pass `--org`/`--project` per call. If you don't know the project slug,
+  run `tektona project ls` and copy a `CONTEXT` value. Most "not found"
+  errors are a wrong context, not a missing resource.
 - **Egress blocked unexpectedly.** Default network policy is restrictive.
   Either pass `--network tektona/open` at create, or use
   `tektona network-policy ls` to find a policy that allows what you need.
