@@ -89,8 +89,8 @@ Override per-call with `--org` / `--project`.
 | Copy a tree (parallel) | `tektona sandbox cp -r ./dir <id>:/dst/` (default 3 workers, cap 6) |
 | Stream stdin/stdout | `tar c ./src \| tektona sandbox cp - <id>:/tmp/src.tar` / `tektona sandbox cp <id>:/path -` |
 | VNC | `tektona vnc <id> [--browser] [--start-desktop]` |
-| Start desktop | `tektona sandbox start-desktop <id>` |
-| Stop desktop | `tektona sandbox stop-desktop <id>` |
+| Start desktop | `tektona sandbox desktop start <id>` |
+| Stop desktop | `tektona sandbox desktop stop <id>` |
 | Screenshot to file | `tektona sandbox screenshot <id> -o out.png` |
 | Preview URL for port | `tektona sandbox preview <id> <port> [--ttl 1h] [--open]` |
 | Revoke preview | `tektona sandbox revoke-preview <id> <token>` |

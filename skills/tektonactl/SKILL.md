@@ -78,7 +78,7 @@ tektonactl desktop display              # current resolution
 ```
 
 You can also start the desktop from outside via
-`tektona sandbox start-desktop <id>` (see the `tektona-cli` skill).
+`tektona sandbox desktop start <id>` (see the `tektona-cli` skill).
 
 ### Screenshot
 
