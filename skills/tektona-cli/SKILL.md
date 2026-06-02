@@ -76,6 +76,7 @@ Override per-call with `--org` / `--project`.
 | Wait for state | `tektona sandbox wait <id> [--state running] [--timeout 5m]` |
 | Pause | `tektona sandbox pause <id> [--mode hibernate\|suspend]` |
 | Resume | `tektona sandbox resume <id>` |
+| Reboot (cold restart) | `tektona sandbox reboot <id> [-y]` |
 | Fork (filesystem snapshot) | `tektona sandbox fork <id> [--mode filesystem\|full]` |
 | Delete | `tektona sandbox delete <id...>` / `--all` / `-y` |
 | SSH | `tektona ssh <id> [-- <command>]` |
