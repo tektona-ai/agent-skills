@@ -165,8 +165,12 @@ or use `tektona sandbox wait`:
 ID=$(tektona sandbox create -i ubuntu:24.04 -o json | jq -r .id)
 tektona sandbox wait "$ID"                                # default: state=running, timeout=5m
 tektona sandbox wait "$ID" --state running --timeout 3m
-tektona sandbox wait "$ID" --state paused                 # also works for pause/resume flows
+tektona sandbox wait "$ID" --state paused                 # matches hibernated or suspended
+tektona sandbox wait "$ID" --state hibernated             # exact pause mode
 ```
+There is no literal `paused` state: `pause` settles into `hibernated`
+(default) or `suspended`. `--state paused` matches either, so
+`pause && wait --state paused` works regardless of `--mode`.
 `wait` exits 0 on success, non-zero on timeout, and **fails fast** if
 the sandbox enters a terminal state (`error`, `deleted`, `deleting`)
 while waiting for a non-terminal target — so the agent doesn't hang on
