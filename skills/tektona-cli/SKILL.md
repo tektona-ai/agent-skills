@@ -193,10 +193,12 @@ Always clone over **HTTPS**, never SSH (`git@…` / `ssh://` URLs do not
 authenticate). Assume private clones **authenticate automatically** — Tektona
 injects the project's (or your personal) stored git credential for that repo
 at clone time, so you do not pass a token, embed credentials in the URL, or
-configure anything. If a clone fails with an auth error, the repo simply has
-no matching git credential stored for it; tell the user to add one on the
-project's **Git Credentials** page rather than trying to supply a token in the
-command. Only deviate from HTTPS/auto-auth if the user explicitly asks.
+configure anything. If a clone fails with an auth error, no git credential is
+stored for that repo in this project; tell the user to attach the repository to
+the project on the **Repositories** page, then add a git credential for it on
+the **Git Credentials** page (the credential covers repositories chosen from the
+project's list) — rather than trying to supply a token in the command. Only
+deviate from HTTPS/auto-auth if the user explicitly asks.
 
 **Forward a sandbox port to your laptop (or vice versa):**
 ```sh
