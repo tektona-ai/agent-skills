@@ -42,9 +42,30 @@ Almost every command runs in the active org/project context. Set it once:
 
 ```sh
 tektona ctx set <org/project>      # e.g. acme-corp/backend (or two args: acme-corp backend)
-tektona ctx show
+tektona ctx show                   # shows the resolved context AND where each value came from
 tektona ctx list                   # every org/project the key can reach
 ```
+
+**Where `ctx set` writes (important when several agents run in parallel).**
+By default `ctx set` writes a repo-local `.tektona/config.json` at the **root of
+the current git repository** (works from any subdirectory; outside a git repo it
+uses the current directory). This file is meant to be committed, and discovery is
+bounded to the repo — it never reads a config from a directory *above* the repo
+root. So agents working in **different repos/worktrees never clobber each other's
+context**, even running concurrently. Use `--global` only for a machine-wide
+default:
+
+```sh
+tektona ctx set acme-corp/backend          # repo-local (this repo only) — the default
+tektona ctx set --global acme-corp/backend # machine-wide default in ~/.config/tektona
+```
+
+Resolution precedence (highest to lowest): `--org`/`--project` flags →
+`TEKTONA_ORG`/`TEKTONA_PROJECT` env vars → repo-local file → global config. For a
+one-off against a different project, prefer a per-call override (`--org`/
+`--project` or the env vars) rather than mutating a config file. Run
+`tektona ctx show` whenever a command targets the wrong place — it reports the
+winning source (flag/env/local/global) per field.
 
 List your projects across every org you belong to (non-interactive),
 then copy a `CONTEXT` value straight into `ctx set`:
@@ -55,8 +76,6 @@ tektona project ls --org acme-corp # filter to one org
 tektona project ls -o json         # machine-readable
 tektona ctx set acme-corp/backend  # paste a value from the CONTEXT column
 ```
-
-Override per-call with `--org` / `--project`.
 
 ## Quick reference — `tektona`
 
