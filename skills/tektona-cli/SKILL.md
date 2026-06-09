@@ -1,6 +1,6 @@
 ---
 name: tektona-cli
-description: Use when the user mentions Tektona, asks to create or manage a remote sandbox / dev environment, needs to SSH or VNC into a sandbox, mint a preview URL for a forwarded port, configure network policy, or runs `tektona` or `tektonactl` commands.
+description: Use when the user mentions Tektona, asks to create or manage a remote sandbox / dev environment, needs to SSH or VNC into a sandbox, mint a preview URL for a forwarded port, configure egress network policy, or runs `tektona` or `tektonactl` commands.
 ---
 
 # Tektona CLI
@@ -116,13 +116,13 @@ tektona ctx set acme-corp/backend  # paste a value from the CONTEXT column
 | Revoke preview | `tektona sandbox revoke-preview <id> <token>` |
 | Show lifecycle config | `tektona sandbox lifecycle <id>` (no flags) |
 | Set lifecycle | `tektona sandbox lifecycle <id> --auto-pause 15m --auto-pause-mode suspend --auto-destroy 30d [--no-auto-resume]` |
-| Show network policies | `tektona network-policy ls` (alias `np`) |
-| Inspect a network policy | `tektona network-policy info <name>` |
-| Default network policy | `tektona network-policy default --set <name>` |
+| Show egress network policies | `tektona egress-network-policy ls` (alias `np`) |
+| Inspect a egress network policy | `tektona egress-network-policy info <name>` |
+| Default egress network policy | `tektona egress-network-policy default --set <name>` |
 
 Add `-o json` to most commands for machine-readable output. Aliases:
 `sandbox` → `s`, `project` → `p`/`proj`/`projects`, `create` → `c`/`new`,
-`delete` → `rm`/`d`/`destroy`, `network-policy` → `np`, `screenshot` → `ss`,
+`delete` → `rm`/`d`/`destroy`, `egress-network-policy` → `np`, `screenshot` → `ss`,
 `revoke-preview` → `rp`. `ls` and `list` are interchangeable.
 
 ## Choosing an image
@@ -294,9 +294,9 @@ clipboard, windows) and `pty` (named long-running sessions) — load the
   pass `--org`/`--project` per call. If you don't know the project slug,
   run `tektona project ls` and copy a `CONTEXT` value. Most "not found"
   errors are a wrong context, not a missing resource.
-- **Egress blocked unexpectedly.** Default network policy is restrictive.
+- **Egress blocked unexpectedly.** Default egress network policy is restrictive.
   Either pass `--network tektona/open` at create, or use
-  `tektona network-policy ls` to find a policy that allows what you need.
+  `tektona egress-network-policy ls` to find a policy that allows what you need.
 - **Using bare `:latest` as the image ref.** Floating tags are
   rejected — pin with a digest (`image:latest@sha256:<digest>`) or use
   a real version tag. Tag-less digests (`image@sha256:<digest>`) are

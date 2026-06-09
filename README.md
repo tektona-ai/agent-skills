@@ -5,7 +5,7 @@ Skills](https://agentskills.io)–compatible agents) how to drive the
 [Tektona](https://tektona.ai) CLI:
 
 - **`tektona-cli`** — install, auth, sandbox lifecycle, SSH/VNC/preview,
-  network policy.
+  egress network policy.
 - **`tektonactl`** — the in-sandbox control tool: computer use (mouse,
   keyboard, screenshots, clipboard) and named PTY sessions.
 

@@ -16,7 +16,7 @@ tektona ssh <sandbox-id> -- tektonactl <command> [args]
 
 **RELATED SKILL:** Use `tektona-cli` for getting into the sandbox in the
 first place — installing the CLI, authenticating, creating sandboxes,
-SSH/VNC, preview URLs, and network policy.
+SSH/VNC, preview URLs, and egress network policy.
 
 ## When to use
 
