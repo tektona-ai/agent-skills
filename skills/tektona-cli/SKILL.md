@@ -10,10 +10,10 @@ description: Use when the user mentions Tektona, asks to create or manage a remo
 `tektona` is the CLI for the Tektona agentic development platform. It manages
 remote sandboxes and provides SSH, VNC, and HTTP preview access. Inside
 a running sandbox, a second binary — `tektonactl` — drives
-the desktop, named PTY sessions, and sandbox introspection.
+the desktop and sandbox introspection.
 
 **RELATED SKILL:** Use `tektonactl` for anything *inside* a sandbox — computer
-use (screenshot, click, type, clipboard) and named PTY sessions. Reach it from
+use (screenshot, click, type, clipboard). Reach it from
 outside with `tektona ssh <id> -- tektonactl ...`.
 
 ## Secrets where possible, everything else in ENV
@@ -394,18 +394,16 @@ a changed policy, swapped profile, or rotated secret.
 
 ## Inside the sandbox: `tektonactl`
 
-Once SSHed in, `tektonactl` is on `PATH` and drives the desktop, PTY
-sessions, and sandbox introspection. From outside the sandbox, wrap it:
+Once SSHed in, `tektonactl` is on `PATH` and drives the desktop and
+sandbox introspection. From outside the sandbox, wrap it:
 
 ```sh
 tektona ssh <id> -- tektonactl info
 tektona ssh <id> -- tektonactl desktop screenshot -o /tmp/s.png
-tektona ssh <id> -- tektonactl pty list
 ```
 
 For the full command surface — `desktop` (screenshot, click, type,
-clipboard, windows) and `pty` (named long-running sessions) — load the
-`tektonactl` skill.
+clipboard, windows) — load the `tektonactl` skill.
 
 ## Common mistakes
 

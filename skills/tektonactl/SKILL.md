@@ -1,6 +1,6 @@
 ---
 name: tektonactl
-description: Use when doing computer use inside a Tektona sandbox — capturing screenshots, clicking, typing, scrolling, reading the clipboard, or driving Chrome on the sandbox's desktop. Also covers managing named long-running PTY sessions, and printing Tektona's egress CA (`tektonactl ca cert`) so tools with their own trust store (e.g. Java keytool) can import it. Invoked from outside via `tektona ssh <id> -- tektonactl ...`.
+description: Use when doing computer use inside a Tektona sandbox — capturing screenshots, clicking, typing, scrolling, reading the clipboard, or driving Chrome on the sandbox's desktop. Also covers printing Tektona's egress CA (`tektonactl ca cert`) so tools with their own trust store (e.g. Java keytool) can import it. Invoked from outside via `tektona ssh <id> -- tektonactl ...`.
 ---
 
 # tektonactl — in-sandbox control tool
@@ -25,8 +25,6 @@ egress proxy profiles.
   the GUI, capture a screenshot, or manage a long-running process.
 - A driver script is calling `tektona ssh <id> -- tektonactl ...` to
   perform computer use remotely.
-- You need a named PTY that survives across SSH invocations (dev server,
-  watcher, REPL).
 
 ## Sandbox image requirement
 
@@ -61,7 +59,6 @@ are accepted.
 ```
 tektonactl info                       # identity, uptime, image digest
 tektonactl desktop <subcommand>       # GUI: screenshot, mouse, keyboard, clipboard
-tektonactl pty     <subcommand>       # named long-running PTY sessions
 tektonactl ca cert                    # print Tektona's egress CA as PEM
 ```
 
@@ -164,33 +161,6 @@ on stdout. Useful for closing the perception loop in one round trip:
 tektonactl desktop click 600 400 --screenshot > after.png
 ```
 
-## `tektonactl pty`
-
-Long-running PTY sessions, addressed by name. Useful for dev servers,
-watchers, REPLs — anything that should survive across SSH invocations.
-
-```sh
-tektonactl pty create <name> [--max-log-size SIZE] -- <command> [args...]
-tektonactl pty list
-tektonactl pty logs <name> [--tail N | --head N]
-tektonactl pty send <name> <text>
-tektonactl pty kill <name> [--timeout N]
-```
-
-`--max-log-size` accepts human sizes (`10MB`, `1GB`); the ring buffer
-trims older output past the limit. `pty send` writes literal text to the
-PTY (newlines included), so use `$'\n'` to submit a command.
-
-### Example: run a dev server, watch it, kill it
-
-```sh
-tektonactl pty create web --max-log-size 10MB -- npm run dev
-tektonactl pty list
-tektonactl pty logs web --tail 50
-tektonactl pty send web $'rs\n'      # nodemon "restart"
-tektonactl pty kill web --timeout 5
-```
-
 ## Common mistakes
 
 - **Calling `tektonactl` from your laptop.** It only exists inside the
@@ -200,7 +170,3 @@ tektonactl pty kill web --timeout 5
   session is running. Run `tektonactl desktop status` first if unsure.
 - **Coordinates outside the current resolution.** Check
   `tektonactl desktop display`.
-- **Treating `pty` like `tmux`.** No multiplexing inside one session — each
-  `pty create` is its own named PTY around a single command.
-- **Forgetting the `--` before the PTY's command.** Required so `tektonactl`
-  doesn't try to parse the inner command's flags.
