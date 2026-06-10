@@ -1,6 +1,6 @@
 ---
 name: tektona-cli
-description: Use when the user mentions Tektona, asks to create or manage a remote sandbox / dev environment, needs to SSH or VNC into a sandbox, mint a preview URL for a forwarded port, configure egress network policy or an egress proxy profile, store a secret / inject a credential (e.g. an API key) at the egress boundary for sandbox outbound requests, set sandbox env vars, or runs `tektona` or `tektonactl` commands.
+description: Use when the user mentions Tektona, asks to create or manage a remote sandbox / dev environment, needs to SSH or VNC into a sandbox, mint a preview URL for a forwarded port, configure egress network policy or an egress proxy profile, store a secret / manage a git credential / inject a credential (e.g. an API key or git token) at the egress boundary for sandbox outbound requests, set sandbox env vars, or runs `tektona` or `tektonactl` commands.
 ---
 
 # Tektona CLI
@@ -12,10 +12,9 @@ remote sandboxes and provides SSH, VNC, and HTTP preview access. Inside
 a running sandbox, a second binary — `tektonactl` — drives
 the desktop, named PTY sessions, and sandbox introspection.
 
-**RELATED SKILL:** Use `tektonactl` for anything happening *inside* a
-sandbox — computer use (screenshot, click, type, clipboard) and named
-PTY sessions. Reach it from outside with
-`tektona ssh <id> -- tektonactl ...`.
+**RELATED SKILL:** Use `tektonactl` for anything *inside* a sandbox — computer
+use (screenshot, click, type, clipboard) and named PTY sessions. Reach it from
+outside with `tektona ssh <id> -- tektonactl ...`.
 
 ## Secrets where possible, everything else in ENV
 
@@ -26,24 +25,18 @@ reaching for `--env`.**
 > Everything else → `--env KEY=VAL`.**
 
 - **Sensitive values** (API keys, tokens, passwords) belong in a
-  `tektona secret`, injected into the sandbox's *outbound* requests by an
-  **egress proxy profile** rule. The value is attached at the egress boundary
-  and **never enters the sandbox** — untrusted agent code inside the box cannot
-  read it, log it, or leak it. Use this wherever the credential is consumed as an
-  HTTP request header to a known host (including a preformatted `Authorization`
-  header when basic auth is needed).
+  `tektona secret`, injected as an HTTP header on the sandbox's *outbound*
+  requests by an **egress proxy profile** rule. The value is attached at the
+  egress boundary and **never enters the sandbox** — agent code can't read or
+  leak it. Same model as git credentials (see the private-clone workflow).
 - **Non-secrets** (model names, base URLs, feature flags, `NODE_ENV`, …) — and
-  any value that genuinely *cannot* be egress-injected because a tool needs the
-  raw value in-process for non-HTTP use — go in **environment variables** via
-  `tektona sandbox create --env KEY=VAL`. An env var **is visible inside the
-  sandbox**: that makes it the right home for non-secrets, and the weaker choice
-  for a secret. Only put a secret in `--env` when egress injection genuinely
-  can't carry it.
+  any value a tool needs raw in-process for non-HTTP use — go in **environment
+  variables** via `--env KEY=VAL`, which **are visible inside the sandbox**. Only
+  put a secret in `--env` when egress injection genuinely can't carry it.
 
 **Canonical example — an Anthropic API key for a coding agent.** The key is a
-header on calls to a known host, so it goes via secret + egress-proxy rule and
-the agent never sees it. The model name and `NODE_ENV` are not secret, so they
-go in `--env`:
+header to a known host, so it goes via secret + egress-proxy rule and the agent
+never sees it; the model name and `NODE_ENV` aren't secret, so they go in `--env`:
 
 ```sh
 # SECRET — never enters the sandbox; injected at the egress boundary
@@ -59,9 +52,9 @@ tektona sandbox create -i node:22 \
 #   NOT: --env ANTHROPIC_API_KEY=...   ← that would expose the key in the box
 ```
 
-The proxy rule references the secret by key as `${secret:KEY}`; the value is
-resolved just-in-time at the proxy, so rotating the secret needs no rule change.
-See **Secrets and egress injection** below for the full command surface.
+The rule references the secret as `${secret:KEY}`, resolved just-in-time at the
+proxy, so rotating the secret needs no rule change. See **Secrets and egress
+injection** below for the full command surface.
 
 ## Install
 
@@ -93,13 +86,10 @@ tektona ctx list                   # every org/project the key can reach
 ```
 
 **Where `ctx set` writes (important when several agents run in parallel).**
-By default `ctx set` writes a repo-local `.tektona/config.json` at the **root of
-the current git repository** (works from any subdirectory; outside a git repo it
-uses the current directory). This file is meant to be committed, and discovery is
-bounded to the repo — it never reads a config from a directory *above* the repo
-root. So agents working in **different repos/worktrees never clobber each other's
-context**, even running concurrently. Use `--global` only for a machine-wide
-default:
+By default it writes a committable, repo-local `.tektona/config.json` at the
+**git-repo root** (discovery is bounded to the repo, never above it), so agents in
+**different repos/worktrees never clobber each other's context**. Use `--global`
+only for a machine-wide default:
 
 ```sh
 tektona ctx set acme-corp/backend          # repo-local (this repo only) — the default
@@ -108,13 +98,11 @@ tektona ctx set --global acme-corp/backend # machine-wide default in ~/.config/t
 
 Resolution precedence (highest to lowest): `--org`/`--project` flags →
 `TEKTONA_ORG`/`TEKTONA_PROJECT` env vars → repo-local file → global config. For a
-one-off against a different project, prefer a per-call override (`--org`/
-`--project` or the env vars) rather than mutating a config file. Run
-`tektona ctx show` whenever a command targets the wrong place — it reports the
-winning source (flag/env/local/global) per field.
+one-off against a different project, prefer a per-call override over mutating a
+config file. `tektona ctx show` reports the winning source per field when a
+command targets the wrong place.
 
-List your projects across every org you belong to (non-interactive),
-then copy a `CONTEXT` value straight into `ctx set`:
+List your projects across every org, then copy a `CONTEXT` value into `ctx set`:
 
 ```sh
 tektona project ls                 # all your projects, across every org (alias: p ls)
@@ -165,7 +153,7 @@ tektona ctx set acme-corp/backend  # paste a value from the CONTEXT column
 | Show egress network policies | `tektona egress-network-policy ls` (alias `np`) |
 | Inspect a egress network policy | `tektona egress-network-policy info <name>` |
 | Default egress network policy | `tektona egress-network-policy default --set <name>` |
-| Store a secret (value via stdin) | `tektona secret set <key> [--scope project\|personal\|org]` |
+| Set a secret (upsert; value via stdin) | `tektona secret set <key> [--scope project\|personal\|org]` (creates, or updates the value in place) |
 | List secrets (keys only) | `tektona secret ls [--scope all\|project\|personal\|org]` |
 | Delete a secret | `tektona secret rm <key> [--scope ...]` |
 | List egress proxy profiles | `tektona egress-proxy ls` (alias `egress`) |
@@ -173,12 +161,16 @@ tektona ctx set acme-corp/backend  # paste a value from the CONTEXT column
 | Create a proxy profile | `tektona egress-proxy apply <name> [--scope project\|org] [--default]` (`--default` is project-scope only) |
 | Add an inject rule | `tektona egress-proxy rule add <name> --host <domain> --header 'NAME=TEMPLATE'` |
 | Delete a proxy profile | `tektona egress-proxy rm <name>` |
+| List git credentials | `tektona git-credential ls` (alias `gitcred`) `[--scope all\|project\|personal]` |
+| Create a git credential (token via stdin) | `tektona git-credential create --name <slug> --display-name <label> --forge github\|gitlab --scope project\|personal --repo <url-or-name>` |
+| Update a git credential (token via stdin if piped, else kept) | `tektona git-credential update <name> --scope ... [--display-name <l>] [--forge ...] [--repo <url-or-name>]` |
+| Delete a git credential | `tektona git-credential rm <name> --scope ...` |
 
 Add `-o json` to most commands for machine-readable output. Aliases:
 `sandbox` → `s`, `project` → `p`/`proj`/`projects`, `create` → `c`/`new`,
 `delete` → `rm`/`d`/`destroy`, `egress-network-policy` → `np`,
-`egress-proxy` → `egress`/`egress-proxy-profile`, `screenshot` → `ss`,
-`revoke-preview` → `rp`. `ls` and `list` are interchangeable.
+`egress-proxy` → `egress`/`egress-proxy-profile`, `git-credential` → `gitcred`,
+`screenshot` → `ss`, `revoke-preview` → `rp`. `ls`/`list` are interchangeable.
 
 ## Choosing an image
 
@@ -264,15 +256,22 @@ durable token-less URL via `sandbox preview` instead.
 tektona ssh "$ID" -- 'git clone https://gitlab.com/group/repo.git'
 ```
 Always clone over **HTTPS**, never SSH (`git@…` / `ssh://` URLs do not
-authenticate). Assume private clones **authenticate automatically** — Tektona
-injects the project's (or your personal) stored git credential for that repo
-at clone time, so you do not pass a token, embed credentials in the URL, or
-configure anything. If a clone fails with an auth error, no git credential is
-stored for that repo in this project; tell the user to attach the repository to
-the project on the **Repositories** page, then add a git credential for it on
-the **Git Credentials** page (the credential covers repositories chosen from the
-project's list) — rather than trying to supply a token in the command. Only
-deviate from HTTPS/auto-auth if the user explicitly asks.
+authenticate). Private clones **authenticate automatically** — Tektona injects
+the project's (or your personal) stored git credential for the repo at the egress
+boundary, so the token never enters the sandbox and you pass nothing in the URL.
+If a clone fails with an auth error, no credential covers that repo; register the
+repo in the project, then add a credential for it:
+
+```sh
+gh auth token | tektona git-credential create --name acme-bot \
+  --display-name "Acme bot" --forge github --scope project --repo <url-or-name>
+```
+
+A credential has an immutable `--name` (the handle it's addressed by) plus a
+`--display-name` label; the token is read from stdin. Rotate it live with
+`tektona git-credential update <name> --scope ...` (token from stdin if piped,
+else kept) — the change applies to running sandboxes and new ones. Only deviate
+from HTTPS/auto-auth if the user explicitly asks.
 
 **Forward a sandbox port to your laptop (or vice versa):**
 ```sh
@@ -335,25 +334,27 @@ this. This section is the *how*. Two independent controls shape outbound traffic
 
 - **Egress network policy** — the **gate**: which hosts a sandbox may reach at
   all (`egress-network-policy`, alias `np`).
-- **Egress proxy profile** — the **treatment**: what gets attached to requests
-  it's already allowed to make. A profile is a bundle of **rules**; each rule
-  matches a host and applies a **recipe** — e.g. inject a header built from a
-  secret (`egress-proxy`, aliases `egress` / `egress-proxy-profile`).
+- **Egress proxy profile** — the **treatment**: a bundle of **rules**, each
+  matching a host and injecting a header built from a secret (`egress-proxy`,
+  aliases `egress` / `egress-proxy-profile`).
 
-A proxy rule **never opens the firewall** — if the network policy doesn't already
-allow the host, the rule is inert. Pair them: a policy that lets the sandbox
-reach `api.anthropic.com`, and a profile that injects your key there.
+A proxy rule **never opens the firewall** — if the policy doesn't already allow
+the host, the rule is inert. Pair them: a policy that reaches
+`api.anthropic.com`, and a profile that injects your key there.
 
 **Secrets** — stored material referenced by key, never echoed back:
 
 ```sh
-tektona secret set anthropic <<<"$KEY"   # value read from STDIN; default --scope project
+tektona secret set anthropic <<<"$KEY"   # upsert from STDIN (creates, or updates in place); default --scope project
 tektona secret set my-tok --scope personal <<<"$TOK"   # only your sandboxes
 tektona secret set org-key --scope org   <<<"$KEY"     # shared across the org
 tektona secret ls                        # KEY / SCOPE / TYPE — values are NEVER shown
 tektona secret ls --scope personal       # filter: all|project|personal|org
 tektona secret rm anthropic              # default --scope project
 ```
+
+`set` is an upsert: a new key is created, an existing one has its value rotated
+in place (live on running sandboxes within seconds — no recreate).
 
 Scopes: `personal` (only sandboxes you own) → `project` (everyone on the project)
 → `org` (every project in the org). A `${secret:KEY}` reference resolves
@@ -386,11 +387,10 @@ tektona sandbox create -i node:22 --egress-proxy team-defaults
 #   --egress-proxy-profile is the long-form alias of --egress-proxy
 ```
 
-**Runtime mutability.** Editing an egress network policy or a proxy profile takes
-effect on **already-running sandboxes within a few seconds** — the proxy
-re-resolves rules and secrets on a short cache TTL, so there is **no need to
-recreate or pause/resume** a sandbox to pick up a changed policy, swapped profile,
-or rotated secret.
+**Runtime mutability.** Editing a network policy or proxy profile takes effect on
+**already-running sandboxes within a few seconds** (the proxy re-resolves rules
+and secrets on a short cache TTL) — no recreate or pause/resume needed to pick up
+a changed policy, swapped profile, or rotated secret.
 
 ## Inside the sandbox: `tektonactl`
 
