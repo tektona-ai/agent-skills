@@ -5,9 +5,11 @@ Skills](https://agentskills.io)–compatible agents) how to drive the
 [Tektona](https://tektona.ai) CLI:
 
 - **`tektona-cli`** — install, auth, sandbox lifecycle, SSH/VNC/preview,
-  egress network policy.
+  env vars, secrets, egress network policy, and egress proxy profiles
+  (inject credentials at the egress boundary, never into the sandbox).
 - **`tektonactl`** — the in-sandbox control tool: computer use (mouse,
-  keyboard, screenshots, clipboard) and named PTY sessions.
+  keyboard, screenshots, clipboard), named PTY sessions, and printing the
+  egress CA (`tektonactl ca cert`).
 
 ## Install the CLI itself
 

@@ -1,6 +1,6 @@
 ---
 name: tektonactl
-description: Use when doing computer use inside a Tektona sandbox — capturing screenshots, clicking, typing, scrolling, reading the clipboard, or driving Chrome on the sandbox's desktop. Also covers managing named long-running PTY sessions inside the sandbox. Invoked from outside via `tektona ssh <id> -- tektonactl ...`.
+description: Use when doing computer use inside a Tektona sandbox — capturing screenshots, clicking, typing, scrolling, reading the clipboard, or driving Chrome on the sandbox's desktop. Also covers managing named long-running PTY sessions, and printing Tektona's egress CA (`tektonactl ca cert`) so tools with their own trust store (e.g. Java keytool) can import it. Invoked from outside via `tektona ssh <id> -- tektonactl ...`.
 ---
 
 # tektonactl — in-sandbox control tool
@@ -16,7 +16,8 @@ tektona ssh <sandbox-id> -- tektonactl <command> [args]
 
 **RELATED SKILL:** Use `tektona-cli` for getting into the sandbox in the
 first place — installing the CLI, authenticating, creating sandboxes,
-SSH/VNC, preview URLs, and egress network policy.
+SSH/VNC, preview URLs, env vars, secrets, and egress network policy /
+egress proxy profiles.
 
 ## When to use
 
@@ -61,9 +62,43 @@ are accepted.
 tektonactl info                       # identity, uptime, image digest
 tektonactl desktop <subcommand>       # GUI: screenshot, mouse, keyboard, clipboard
 tektonactl pty     <subcommand>       # named long-running PTY sessions
+tektonactl ca cert                    # print Tektona's egress CA as PEM
 ```
 
 Bare `tektonactl` or `--help` prints usage and exits 0.
+
+## Injected secrets are NOT visible in the sandbox
+
+Credentials Tektona injects (API keys, tokens — see the egress proxy profile /
+secrets flow in the `tektona-cli` skill) are attached to outbound requests **at
+the egress boundary, outside the sandbox**. They are *not* present in the box:
+not in the environment, not on disk, not readable by anything you run via
+`tektonactl` or `tektona ssh`. A request to a matched host (e.g.
+`api.anthropic.com`) leaves carrying the credential, but nothing inside can read
+it. Don't go hunting for an injected key in env vars or files — it isn't there by
+design. (Non-secret config passed with `tektona sandbox create --env KEY=VAL`
+*is* visible in-box; that's the intended split.)
+
+## `tektonactl ca cert` — egress CA for tools with their own trust store
+
+When an egress proxy profile injects into a host, the proxy terminates TLS for
+that host, so the sandbox must trust Tektona's egress CA. Tektona stages this
+automatically at boot for the common tools (`curl`, Node, Python `requests`, Go,
+`git`) via the system trust store and the standard CA-bundle env vars — those
+work with no setup.
+
+Some runtimes ship their **own** trust store and ignore the system one — **Java**
+is the usual example. `tektonactl ca cert` prints the *current* CA as PEM to
+stdout, so it pipes straight into such an importer and stays correct across CA
+rotation:
+
+```sh
+tektonactl ca cert | keytool -importcert -alias tektona \
+  -cacerts -storepass changeit -noprompt
+```
+
+Read the live cert at boot — never bake the CA into your image: it rotates, and a
+baked copy goes stale.
 
 ## `tektonactl desktop`
 
