@@ -118,7 +118,7 @@ tektona ctx set acme-corp/backend  # paste a value from the CONTEXT column
 | List projects (all orgs) | `tektona project ls` (alias `p ls`) `[--org <slug>] [--wide] [-o json]` |
 | Switch context | `tektona ctx set <org/project>` (copy a CONTEXT value from `project ls`) |
 | Create sandbox | `tektona sandbox create -i <image> [--cpu N --memory N --disk N --env K=V --egress-network-policy <policy> --egress-proxy <profile>]` |
-| Create + SSH in | `tektona s c -i ubuntu:24.04 --ssh` |
+| Create + SSH in | `tektona s c -i ghcr.io/tektona-ai/desktop-x11:0.4.1 --ssh` |
 | Create + VNC in browser | `tektona s c -i <image> --vnc --browser` |
 | List active | `tektona sandbox ls` |
 | List all (incl. terminated) | `tektona sandbox ls -A` |
@@ -205,21 +205,21 @@ ghcr.io/tektona-ai/desktop-x11:<tag>
 Look up the latest version at
 <https://github.com/tektona-ai/desktop-x11/pkgs/container/desktop-x11>
 before suggesting a command. As of the most recent skill release the
-newest tag is `0.3.2`, but verify — the registry may have rolled
+newest tag is `0.4.1`, but verify — the registry may have rolled
 forward.
 
 ## Common workflows
 
 **Spin up a fresh dev box and drop into it:**
 ```sh
-tektona sandbox create -i ubuntu:24.04 --cpu 4 --memory 4 --ssh
+tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:0.4.1 --cpu 4 --memory 4 --ssh
 ```
 Use `--egress-network-policy tektona/open` (alias `--egress-policy`) if you need
 unrestricted egress (default policy restricts egress).
 
 **Spin up a desktop sandbox and open VNC:**
 ```sh
-tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:0.3.2 --vnc --browser
+tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:0.4.1 --vnc --browser
 ```
 
 **Wait for a sandbox to be ready:**
@@ -228,7 +228,7 @@ tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:0.3.2 --vnc --browser
 `--ssh` / `--vnc` to `create` (which block until the connection is up),
 or use `tektona sandbox wait`:
 ```sh
-ID=$(tektona sandbox create -i ubuntu:24.04 -o json | jq -r .id)
+ID=$(tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:0.4.1 -o json | jq -r .id)
 tektona sandbox wait "$ID"                                # default: state=running, timeout=5m
 tektona sandbox wait "$ID" --state running --timeout 3m
 tektona sandbox wait "$ID" --state paused                 # matches hibernated or suspended
