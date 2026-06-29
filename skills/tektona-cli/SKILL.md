@@ -342,6 +342,18 @@ A proxy rule **never opens the firewall** — if the policy doesn't already allo
 the host, the rule is inert. Pair them: a policy that reaches
 `api.anthropic.com`, and a profile that injects your key there.
 
+**Reference grammar (both `--egress-network-policy` and `--egress-proxy-profile`).**
+The value's prefix is a **scope keyword**, not an org/project name:
+
+- `tektona/<name>` — system (Tektona-provided). Network policies have these
+  (`tektona/dev`, `tektona/open`); proxy profiles have none, so `tektona/<name>`
+  is reported as "no system proxy profile".
+- `org/<name>` — the sandbox's org.
+- `project/<name>` — the sandbox's project.
+- `<name>` (bare) — **strict alias for `project/<name>`**. A bare name is always
+  the project scope; use `org/<name>` for an org resource (there is no hidden
+  org fallback).
+
 **Secrets** — stored material referenced by key, never echoed back:
 
 ```sh
