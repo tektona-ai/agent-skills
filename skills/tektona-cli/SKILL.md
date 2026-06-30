@@ -140,11 +140,11 @@ reserved (and `personal` for orgs).
 | Task | Command |
 |---|---|
 | List orgs | `tektona org ls` (alias `o ls`) `[--wide] [-o json]` |
-| Show org + members | `tektona org get [<org>] [-o json]` (aliases: `show`, `info`) |
+| Show org + members | `tektona org get [<org>] [-o json]` (aliases: `show`, `info`, `details`) |
 | Create org | `tektona org create --name <slug> --display-name <label>` (alias `org new`) |
 | Update org | `tektona org update <org> [--name <slug>] [--display-name <l>] [--default-location <id>] [--default-project-role none\|reader\|writer\|admin]` |
 | List projects (all orgs) | `tektona project ls` (alias `p ls`) `[--org <slug>] [--wide] [-o json]` |
-| Show project | `tektona project get <project> --org <slug> [-o json]` (aliases: `show`, `info`) |
+| Show project | `tektona project get <project> --org <slug> [-o json]` (aliases: `show`, `info`, `details`) |
 | Create project | `tektona project create <name> --org <slug> --display-name <label> [--description <d>]` (alias `p new`) |
 | Update project | `tektona project update <project> --org <slug> [--name <slug>] [--display-name <l>] [--description <d>]` |
 | Switch context | `tektona ctx set <org/project>` (copy a CONTEXT value from `project ls`) |
