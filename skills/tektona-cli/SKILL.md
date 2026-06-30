@@ -1,6 +1,6 @@
 ---
 name: tektona-cli
-description: Use when the user mentions Tektona, asks to create or manage a remote sandbox / dev environment, needs to SSH or VNC into a sandbox, mint a preview URL for a forwarded port, configure egress network policy or an egress proxy profile, store a secret / manage a git credential / inject a credential (e.g. an API key or git token) at the egress boundary for sandbox outbound requests, set sandbox env vars, or runs `tektona` or `tektonactl` commands.
+description: Use when the user mentions Tektona, asks to create or manage a remote sandbox / dev environment, create or manage organizations and projects (list, show, create, update), needs to SSH or VNC into a sandbox, mint a preview URL for a forwarded port, configure egress network policy or an egress proxy profile, store a secret / manage a git credential / inject a credential (e.g. an API key or git token) at the egress boundary for sandbox outbound requests, set sandbox env vars, or runs `tektona` or `tektonactl` commands.
 ---
 
 # Tektona CLI
@@ -111,11 +111,42 @@ tektona project ls -o json         # machine-readable
 tektona ctx set acme-corp/backend  # paste a value from the CONTEXT column
 ```
 
+## Manage orgs and projects
+
+Create, update, list, and inspect organizations and projects from the CLI.
+Every command works two ways: an interactive wizard on a terminal, or a fully
+non-interactive path when inputs are supplied as flags, stdin is not a TTY, or
+`--no-input` / `-o json` is set. **Agents must take the non-interactive path** —
+pass every input as a flag so nothing is ever prompted.
+
+```sh
+tektona org ls                                   # your orgs (alias: o ls); * marks context
+tektona org show acme-corp                        # detail + members (defaults to context org)
+tektona org create --name beta-labs --display-name "Beta Labs"
+tektona org update acme-corp --default-project-role reader
+
+tektona project show web --org acme-corp          # detail + your effective role
+tektona project create reports --org acme-corp --display-name "Reports"
+tektona project update web --org acme-corp --description "New copy"
+```
+
+`update` is a read-modify-write: unspecified fields keep their current values,
+so `project update web --description X` preserves the name and display name.
+Org and project names are slugs (`^[a-z0-9][a-z0-9-]*[a-z0-9]$`); `tektona` is
+reserved (and `personal` for orgs).
+
 ## Quick reference — `tektona`
 
 | Task | Command |
 |---|---|
+| List orgs | `tektona org ls` (alias `o ls`) `[--wide] [-o json]` |
+| Show org + members | `tektona org show [<org>] [-o json]` |
+| Create org | `tektona org create --name <slug> --display-name <label>` (alias `org new`) |
+| Update org | `tektona org update <org> [--name <slug>] [--display-name <l>] [--default-location <id>] [--default-project-role none\|reader\|writer\|admin]` |
 | List projects (all orgs) | `tektona project ls` (alias `p ls`) `[--org <slug>] [--wide] [-o json]` |
+| Show project | `tektona project show <project> --org <slug> [-o json]` |
+| Create project | `tektona project create <name> --org <slug> --display-name <label> [--description <d>]` (alias `p new`) |
+| Update project | `tektona project update <project> --org <slug> [--name <slug>] [--display-name <l>] [--description <d>]` |
 | Switch context | `tektona ctx set <org/project>` (copy a CONTEXT value from `project ls`) |
 | Create sandbox | `tektona sandbox create -i <image> [--cpu N --memory N --disk N --env K=V --egress-network-policy <policy> --egress-proxy <profile>]` |
 | Create + SSH in | `tektona s c -i ghcr.io/tektona-ai/desktop-x11:0.4.1 --ssh` |
@@ -167,7 +198,7 @@ tektona ctx set acme-corp/backend  # paste a value from the CONTEXT column
 | Delete a git credential | `tektona git-credential rm <name> --scope ...` |
 
 Add `-o json` to most commands for machine-readable output. Aliases:
-`sandbox` → `s`, `project` → `p`/`proj`/`projects`, `create` → `c`/`new`,
+`sandbox` → `s`, `org` → `o`/`orgs`, `project` → `p`/`proj`/`projects`, `create` → `c`/`new`,
 `delete` → `rm`/`d`/`destroy`, `egress-network-policy` → `np`,
 `egress-proxy` → `egress`/`egress-proxy-profile`, `git-credential` → `gitcred`,
 `screenshot` → `ss`, `revoke-preview` → `rp`. `ls`/`list` are interchangeable.
@@ -209,6 +240,15 @@ newest tag is `0.4.1`, but verify — the registry may have rolled
 forward.
 
 ## Common workflows
+
+**Create a project for an agent (non-interactive):**
+```sh
+tektona project create reports --org acme-corp --display-name "Reports" \
+  --description "Scheduled report generation"
+```
+Pass every input as a flag — `--org`, `--display-name`, and `--name` (or the
+positional name) — so the command never prompts. Add `-o json` to capture the
+returned project. The same flag-only form works for `tektona org create`.
 
 **Spin up a fresh dev box and drop into it:**
 ```sh
@@ -423,6 +463,10 @@ clipboard, windows) — load the `tektonactl` skill.
   pass `--org`/`--project` per call. If you don't know the project slug,
   run `tektona project ls` and copy a `CONTEXT` value. Most "not found"
   errors are a wrong context, not a missing resource.
+- **Relying on the org/project wizard as an agent.** `org create`, `project
+  create`, and `update` prompt interactively only on a TTY. An agent must pass
+  every input as a flag (`--display-name`/`--name`/`--org`) — a missing required
+  flag fails fast with no HTTP call rather than hanging on a prompt.
 - **Egress blocked unexpectedly.** Default egress network policy is restrictive.
   Either pass `--egress-network-policy tektona/open` at create (the old
   `--network` flag is gone; `--egress-policy` is the alias), or use
