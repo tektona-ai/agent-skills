@@ -155,7 +155,7 @@ reserved (and `personal` for orgs).
 | List all (incl. terminated) | `tektona sandbox ls -A` |
 | List with full digests + resources | `tektona sandbox ls -w` |
 | Filter by state | `tektona sandbox ls --state running` |
-| Show details | `tektona sandbox get <id>` (aliases: `info`, `show`) |
+| Show details | `tektona sandbox get <id>` (aliases: `info`, `show`, `details`) |
 | List listening ports | `tektona sandbox ports <id> [--json]` |
 | Wait for state | `tektona sandbox wait <id> [--state running] [--timeout 5m]` |
 | Pause | `tektona sandbox pause <id> [--mode hibernate\|suspend]` |
