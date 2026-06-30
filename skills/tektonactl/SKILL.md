@@ -57,7 +57,7 @@ are accepted.
 ## Top level
 
 ```
-tektonactl info                       # identity, uptime, image digest
+tektonactl get                        # identity, uptime, image digest (aliases: info, show)
 tektonactl desktop <subcommand>       # GUI: screenshot, mouse, keyboard, clipboard
 tektonactl ca cert                    # print Tektona's egress CA as PEM
 ```

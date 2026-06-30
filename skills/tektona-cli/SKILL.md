@@ -121,11 +121,11 @@ pass every input as a flag so nothing is ever prompted.
 
 ```sh
 tektona org ls                                   # your orgs (alias: o ls); * marks context
-tektona org show acme-corp                        # detail + members (defaults to context org)
+tektona org get acme-corp                          # detail + members (defaults to context org)
 tektona org create --name beta-labs --display-name "Beta Labs"
 tektona org update acme-corp --default-project-role reader
 
-tektona project show web --org acme-corp          # detail + your effective role
+tektona project get web --org acme-corp           # detail + your effective role
 tektona project create reports --org acme-corp --display-name "Reports"
 tektona project update web --org acme-corp --description "New copy"
 ```
@@ -140,11 +140,11 @@ reserved (and `personal` for orgs).
 | Task | Command |
 |---|---|
 | List orgs | `tektona org ls` (alias `o ls`) `[--wide] [-o json]` |
-| Show org + members | `tektona org show [<org>] [-o json]` |
+| Show org + members | `tektona org get [<org>] [-o json]` (aliases: `show`, `info`) |
 | Create org | `tektona org create --name <slug> --display-name <label>` (alias `org new`) |
 | Update org | `tektona org update <org> [--name <slug>] [--display-name <l>] [--default-location <id>] [--default-project-role none\|reader\|writer\|admin]` |
 | List projects (all orgs) | `tektona project ls` (alias `p ls`) `[--org <slug>] [--wide] [-o json]` |
-| Show project | `tektona project show <project> --org <slug> [-o json]` |
+| Show project | `tektona project get <project> --org <slug> [-o json]` (aliases: `show`, `info`) |
 | Create project | `tektona project create <name> --org <slug> --display-name <label> [--description <d>]` (alias `p new`) |
 | Update project | `tektona project update <project> --org <slug> [--name <slug>] [--display-name <l>] [--description <d>]` |
 | Switch context | `tektona ctx set <org/project>` (copy a CONTEXT value from `project ls`) |
@@ -155,7 +155,7 @@ reserved (and `personal` for orgs).
 | List all (incl. terminated) | `tektona sandbox ls -A` |
 | List with full digests + resources | `tektona sandbox ls -w` |
 | Filter by state | `tektona sandbox ls --state running` |
-| Show details | `tektona sandbox info <id>` |
+| Show details | `tektona sandbox get <id>` (aliases: `info`, `show`) |
 | List listening ports | `tektona sandbox ports <id> [--json]` |
 | Wait for state | `tektona sandbox wait <id> [--state running] [--timeout 5m]` |
 | Pause | `tektona sandbox pause <id> [--mode hibernate\|suspend]` |
@@ -450,7 +450,7 @@ Once SSHed in, `tektonactl` is on `PATH` and drives the desktop and
 sandbox introspection. From outside the sandbox, wrap it:
 
 ```sh
-tektona ssh <id> -- tektonactl info
+tektona ssh <id> -- tektonactl get
 tektona ssh <id> -- tektonactl desktop screenshot -o /tmp/s.png
 ```
 
