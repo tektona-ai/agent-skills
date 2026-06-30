@@ -131,9 +131,10 @@ tektona project update web --org acme-corp --description "New copy"
 ```
 
 `update` is a read-modify-write: unspecified fields keep their current values,
-so `project update web --description X` preserves the name and display name.
-Org and project names are slugs (`^[a-z0-9][a-z0-9-]*[a-z0-9]$`); `tektona` is
-reserved (and `personal` for orgs).
+so `project update web --description X` preserves the display name. Org and
+project names match `^[a-z0-9][a-z0-9-]*[a-z0-9]$`; `tektona` is reserved (and
+`personal` for orgs). The name is fixed at creation and can't be changed on
+update.
 
 ## Quick reference — `tektona`
 
@@ -142,11 +143,11 @@ reserved (and `personal` for orgs).
 | List orgs | `tektona org ls` (alias `o ls`) `[--wide] [-o json]` |
 | Show org + members | `tektona org get [<org>] [-o json]` (aliases: `show`, `info`, `details`) |
 | Create org | `tektona org create --name <slug> --display-name <label>` (alias `org new`) |
-| Update org | `tektona org update <org> [--name <slug>] [--display-name <l>] [--default-location <id>] [--default-project-role none\|reader\|writer\|admin]` |
+| Update org | `tektona org update <org> [--display-name <l>] [--default-location <id>] [--default-project-role none\|reader\|writer\|admin]` |
 | List projects (all orgs) | `tektona project ls` (alias `p ls`) `[--org <slug>] [--wide] [-o json]` |
 | Show project | `tektona project get <project> --org <slug> [-o json]` (aliases: `show`, `info`, `details`) |
 | Create project | `tektona project create <name> --org <slug> --display-name <label> [--description <d>]` (alias `p new`) |
-| Update project | `tektona project update <project> --org <slug> [--name <slug>] [--display-name <l>] [--description <d>]` |
+| Update project | `tektona project update <project> --org <slug> [--display-name <l>] [--description <d>]` |
 | Switch context | `tektona ctx set <org/project>` (copy a CONTEXT value from `project ls`) |
 | Create sandbox | `tektona sandbox create -i <image> [--cpu N --memory N --disk N --env K=V --egress-network-policy <policy> --egress-proxy <profile>]` |
 | Create + SSH in | `tektona s c -i ghcr.io/tektona-ai/desktop-x11:0.4.1 --ssh` |
