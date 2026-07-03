@@ -161,7 +161,8 @@ update.
 | Wait for state | `tektona sandbox wait <id> [--state running] [--timeout 5m]` |
 | Pause | `tektona sandbox pause <id> [--mode hibernate\|suspend]` |
 | Resume | `tektona sandbox resume <id>` |
-| Reboot (cold restart) | `tektona sandbox reboot <id> [-y]` |
+| Reboot (orderly restart) | `tektona sandbox reboot <id> [-y]` — processes get SIGTERM; recent writes survive |
+| Reset (hard reset) | `tektona sandbox reset <id> [-y]` — like pulling the power; un-synced writes lost; use only when wedged |
 | Fork (filesystem snapshot) | `tektona sandbox fork <id> [--mode filesystem\|full]` |
 | Delete | `tektona sandbox delete <id...>` / `--all` / `-y` |
 | SSH | `tektona ssh <id> [-- <command>]` |
