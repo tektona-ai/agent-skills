@@ -1,6 +1,6 @@
 ---
 name: tektona-cli
-description: Use when the user mentions Tektona, asks to create or manage a remote sandbox / dev environment, create or manage organizations and projects (list, show, create, update), needs to SSH or VNC into a sandbox, mint a preview URL for a forwarded port, configure egress network policy or an egress proxy profile, store a secret / manage a git credential / inject a credential (e.g. an API key or git token) at the egress boundary for sandbox outbound requests, set sandbox env vars, or runs `tektona` or `tektonactl` commands.
+description: Use when the user mentions Tektona, asks to create or manage a remote sandbox / dev environment, create or manage organizations and projects (list, show, create, update), needs to SSH or VNC into a sandbox, mint a preview URL for a forwarded port, control a sandbox's lifecycle (auto-pause when idle, wake on access, auto-delete) per sandbox or as project defaults, configure egress network policy or an egress proxy profile, store a secret / manage a git credential / inject a credential (e.g. an API key or git token) at the egress boundary for sandbox outbound requests, set sandbox env vars, or runs `tektona` or `tektonactl` commands.
 ---
 
 # Tektona CLI
@@ -180,8 +180,10 @@ update.
 | Screenshot to file | `tektona sandbox screenshot <id> -o out.png` |
 | Preview URL for port | `tektona sandbox preview <id> <port> [--ttl 1h] [--open]` |
 | Revoke preview | `tektona sandbox revoke-preview <id> <token>` |
-| Show lifecycle config | `tektona sandbox lifecycle <id>` (no flags) |
-| Set lifecycle | `tektona sandbox lifecycle <id> --auto-pause 15m --auto-pause-mode suspend --auto-delete 30d [--no-auto-resume]` |
+| Show lifecycle (effective + source tier) | `tektona sandbox get <id>` (lifecycle rows show each effective value and the tier that set it) |
+| Set sandbox lifecycle overrides | `tektona sandbox lifecycle <id> --auto-pause 15m --auto-pause-mode suspend --auto-resume false --auto-delete 30d` |
+| Never auto-pause (silent long job) | `tektona sandbox lifecycle <id> --auto-pause never` |
+| Show / set project lifecycle defaults | `tektona project lifecycle-defaults <project> [--org <slug>] [--auto-pause 1h --auto-resume true --auto-delete 7d]` |
 | Show egress network policies | `tektona egress-network-policy ls` (alias `np`) |
 | Inspect a egress network policy | `tektona egress-network-policy info <name>` |
 | Default egress network policy | `tektona egress-network-policy default --set <name>` |
@@ -357,16 +359,55 @@ interrupted. Use `--fail-fast` to abort the run on the first per-file
 error. For scripting, pipe `--output json` to get one structured event
 per line.
 
-**Pause when idle, auto-delete stale boxes:**
+**Control when a sandbox pauses, wakes, and is deleted (lifecycle):**
+
+By default a sandbox **auto-pauses (hibernates) after 15 minutes without
+boundary-crossing traffic**, **wakes automatically on the next access**, and is
+**never auto-deleted**. The idle timer only sees traffic that *crosses the sandbox
+boundary* — SSH/VNC/exec sessions, preview HTTP, agent requests, outbound network
+transfers. **Silent in-VM compute — a build, a training run, a local batch job —
+looks idle**, so the sandbox hibernates mid-job. Hibernate preserves RAM, so the
+job's processes survive and continue on resume, but wall-clock time stalls while
+it's paused. Before launching a long, network-silent job, disable auto-pause:
+
 ```sh
-tektona sandbox lifecycle <id>                                  # show current config
-tektona sandbox lifecycle <id> --auto-pause 15m --auto-delete 7d
-tektona sandbox lifecycle <id> --auto-pause 15m --auto-pause-mode suspend --no-auto-resume
+tektona sandbox create -i node:22 --auto-pause never          # at create time
+tektona sandbox lifecycle <id> --auto-pause never             # or on an existing sandbox
 ```
-With no flags, `lifecycle` prints the current config instead of
-updating — it's both the getter and the setter. `--auto-pause-mode`
-(`hibernate`|`suspend`, default `hibernate`) picks how the idle pause
-is taken; `--no-auto-resume` keeps it paused until explicitly resumed.
+
+Each knob is **tri-state**: a duration (`15m`, `2h`, `30d`), `never` (disable —
+interval knobs only), or `inherit` (fall through **sandbox override → project
+default → platform default**). Set any subset at create or later:
+
+```sh
+tektona sandbox create -i node:22 \
+  --auto-pause 2h --auto-pause-mode suspend --auto-resume false --auto-delete 7d
+tektona sandbox lifecycle <id> --auto-pause 30m --auto-delete 30d
+```
+
+- `--auto-pause-mode` is `hibernate` (default; preserves RAM, sub-second resume)
+  or `suspend` (disk only, cheaper to store, cold-boots on resume).
+- `--auto-resume false` keeps a paused sandbox paused until you resume it
+  explicitly; with the default (`true`) any access resumes it.
+
+**Viewing:** `tektona sandbox lifecycle <id>` with no flags now **errors** — it's
+setter-only. Read effective values with `tektona sandbox get <id>`, whose
+lifecycle rows show each value and the tier (own / project / platform) that
+supplied it.
+
+**Project-wide defaults** apply to every sandbox that doesn't override the knob
+itself. With no flags the command prints the defaults; with flags it replaces them:
+
+```sh
+tektona project lifecycle-defaults <project> --org <slug>              # show
+tektona project lifecycle-defaults <project> --auto-pause 1h --auto-delete 7d
+tektona project lifecycle-defaults <project> --auto-delete inherit     # clear one default
+```
+
+**Waking is automatic:** you do NOT need to resume a hibernated sandbox before
+`tektona ssh`, a preview URL, or an agent request — the access resumes it and then
+serves the request. Expect a few seconds' extra latency on first contact with a
+paused sandbox (a warm hibernate resume is typically sub-second).
 
 ## Secrets and egress injection
 
@@ -481,6 +522,15 @@ clipboard, windows) — load the `tektonactl` skill.
   rejected — pin with a digest (`image:latest@sha256:<digest>`) or use
   a real version tag. Tag-less digests (`image@sha256:<digest>`) are
   fine; that's the most deterministic pin you can give.
+- **Letting a silent long job get hibernated.** The idle timer only sees
+  boundary-crossing traffic, so a network-silent build or training run looks idle
+  and auto-pauses after 15m. Set `--auto-pause never` (at create or via
+  `tektona sandbox lifecycle <id>`) before starting one. You do NOT need to resume
+  a paused sandbox manually — any access wakes it.
+- **Running `tektona sandbox lifecycle <id>` with no flags to view config.** It's
+  now setter-only and errors with no flags; read effective lifecycle values from
+  `tektona sandbox get <id>`. `--no-auto-resume` is a deprecated hidden alias — use
+  `--auto-resume false`.
 - **Inventing flags that don't exist on `wait`.** Real flags are
   `--state` (default `running`), `--timeout` (default `5m`), and
   `--interval` (default `2s`). Anything else will be rejected.
