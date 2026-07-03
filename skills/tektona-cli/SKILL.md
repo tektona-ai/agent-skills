@@ -181,7 +181,7 @@ update.
 | Preview URL for port | `tektona sandbox preview <id> <port> [--ttl 1h] [--open]` |
 | Revoke preview | `tektona sandbox revoke-preview <id> <token>` |
 | Show lifecycle config | `tektona sandbox lifecycle <id>` (no flags) |
-| Set lifecycle | `tektona sandbox lifecycle <id> --auto-pause 15m --auto-pause-mode suspend --auto-destroy 30d [--no-auto-resume]` |
+| Set lifecycle | `tektona sandbox lifecycle <id> --auto-pause 15m --auto-pause-mode suspend --auto-delete 30d [--no-auto-resume]` |
 | Show egress network policies | `tektona egress-network-policy ls` (alias `np`) |
 | Inspect a egress network policy | `tektona egress-network-policy info <name>` |
 | Default egress network policy | `tektona egress-network-policy default --set <name>` |
@@ -357,10 +357,10 @@ interrupted. Use `--fail-fast` to abort the run on the first per-file
 error. For scripting, pipe `--output json` to get one structured event
 per line.
 
-**Pause when idle, auto-destroy stale boxes:**
+**Pause when idle, auto-delete stale boxes:**
 ```sh
 tektona sandbox lifecycle <id>                                  # show current config
-tektona sandbox lifecycle <id> --auto-pause 15m --auto-destroy 7d
+tektona sandbox lifecycle <id> --auto-pause 15m --auto-delete 7d
 tektona sandbox lifecycle <id> --auto-pause 15m --auto-pause-mode suspend --no-auto-resume
 ```
 With no flags, `lifecycle` prints the current config instead of
