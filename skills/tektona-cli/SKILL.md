@@ -396,7 +396,7 @@ lifecycle rows show each value and the tier (own / project / platform) that
 supplied it.
 
 **Project-wide defaults** apply to every sandbox that doesn't override the knob
-itself. With no flags the command prints the defaults; with flags it replaces them:
+itself. With no flags the command prints the defaults; with flags it updates the ones you pass (omitted flags keep their value):
 
 ```sh
 tektona project lifecycle-defaults <project> --org <slug>              # show
