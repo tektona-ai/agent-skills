@@ -118,7 +118,7 @@ tektonactl process run -t -- bash
 
 tektonactl process ls                     # running + finished (alias: list)
 tektonactl process get <ref>              # by name or ULID (aliases: info, show)
-tektonactl process logs <ref> -f [--tail N]
+tektonactl process logs <ref> -f [-n/--tail N]
 tektonactl process attach <ref>           # reattach: replays recent output, then live
 tektonactl process stop <ref> [--force]   # SIGTERM → grace → SIGKILL (group)
 tektonactl process signal <ref> SIGHUP
@@ -131,7 +131,7 @@ awake while it runs), `--on-suspend preserve|stop|restart_after_resume`,
 (`0` = logging off).
 
 A `--name` is `[a-z0-9_-]`, unique among running processes, and lets you address
-the process later without the ULID. Processes are server-owned: they survive
+the process later without the ULID. Processes are sandbox-owned: they survive
 this shell disconnecting. Prefer this over `npm start &` — a shell-backgrounded
 process isn't tracked, tailable, or stoppable by name.
 

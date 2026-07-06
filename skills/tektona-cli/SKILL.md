@@ -179,7 +179,7 @@ update.
 | Start a background process | `tektona sandbox process run <id> -d --name <name> -- <cmd...>` |
 | Interactive shell (PTY) | `tektona sandbox process run <id> -t -- bash` |
 | List processes | `tektona sandbox process ls <id>` (`--autostart` for definitions) |
-| Tail logs | `tektona sandbox process logs <id> <ref> -f [--tail N]` |
+| Tail logs | `tektona sandbox process logs <id> <ref> -f [-n/--tail N]` |
 | Attach / reattach | `tektona sandbox process attach <id> <ref>` |
 | Stop process | `tektona sandbox process stop <id> <ref> [--force]` |
 | Signal process | `tektona sandbox process signal <id> <ref> SIGHUP` |
@@ -303,7 +303,7 @@ tektona sandbox process run "$ID" -d --name web --cwd /workspace -- npm start
 tektona sandbox preview "$ID" 3000 --ttl 4h --open
 ```
 Prefer `sandbox process run -d` over `ssh -- 'npm start &'`: the process is
-server-owned (survives the SSH session), named, tailable
+sandbox-owned (survives the SSH session), named, tailable
 (`process logs "$ID" web -f`), and stoppable (`process stop "$ID" web`).
 Token-bearing URL by default. Pass `--public` at create time to get a
 durable token-less URL via `sandbox preview` instead.
