@@ -1,6 +1,6 @@
 ---
 name: tektona-cli
-description: Use when the user mentions Tektona, asks to create or manage a remote sandbox / dev environment, create or manage organizations and projects (list, show, create, update), needs to SSH or VNC into a sandbox, mint a preview URL for a forwarded port, control a sandbox's lifecycle (auto-pause when idle, wake on access, auto-delete) per sandbox or as project defaults, configure egress network policy or an egress proxy profile, store a secret / manage a git credential / inject a credential (e.g. an API key or git token) at the egress boundary for sandbox outbound requests, set sandbox env vars, or runs `tektona` or `tektonactl` commands.
+description: Use when the user mentions Tektona, asks to create or manage a remote sandbox / dev environment, create or manage organizations and projects (list, show, create, update), needs to SSH or VNC into a sandbox, mint a preview URL for a forwarded port, control a sandbox's lifecycle (auto-pause when idle, wake on access, auto-delete) per sandbox or as project defaults, configure egress network policy or an egress proxy profile, store a secret / manage a git credential / inject a credential (e.g. an API key or git token) at the egress boundary for sandbox outbound requests, set sandbox env vars, run or manage a process inside a sandbox (background servers, one-off commands, interactive shells, logs, autostart), or runs `tektona` or `tektonactl` commands.
 ---
 
 # Tektona CLI
@@ -175,6 +175,15 @@ update.
 | Download file(s) | `tektona sandbox cp <id>:/abs/path <local>` |
 | Copy a tree (parallel) | `tektona sandbox cp -r ./dir <id>:/dst/` (default 3 workers, cap 6) |
 | Stream stdin/stdout | `tar c ./src \| tektona sandbox cp - <id>:/tmp/src.tar` / `tektona sandbox cp <id>:/path -` |
+| Run a command (waits, exits with its code) | `tektona sandbox process run <id> -- <cmd...>` (alias `s p run`) |
+| Start a background process | `tektona sandbox process run <id> -d --name <name> -- <cmd...>` |
+| Interactive shell (PTY) | `tektona sandbox process run <id> -t -- bash` |
+| List processes | `tektona sandbox process ls <id>` (`--autostart` for definitions) |
+| Tail logs | `tektona sandbox process logs <id> <ref> -f [--tail N]` |
+| Attach / reattach | `tektona sandbox process attach <id> <ref>` |
+| Stop process | `tektona sandbox process stop <id> <ref> [--force]` |
+| Signal process | `tektona sandbox process signal <id> <ref> SIGHUP` |
+| Autostart on every boot | `tektona sandbox process run <id> -d --name <name> --autostart -- <cmd...>` / `process autostart <id> <ref> on\|off` |
 | VNC | `tektona vnc <id> [--browser] [--start-desktop]` |
 | Start desktop | `tektona sandbox desktop start <id>` |
 | Stop desktop | `tektona sandbox desktop stop <id>` |
@@ -205,7 +214,8 @@ Add `-o json` to most commands for machine-readable output. Aliases:
 `sandbox` → `s`, `org` → `o`/`orgs`, `project` → `p`/`proj`/`projects`, `create` → `c`/`new`,
 `delete` → `rm`/`d`/`destroy`, `egress-network-policy` → `np`,
 `egress-proxy` → `egress`/`egress-proxy-profile`, `git-credential` → `gitcred`,
-`screenshot` → `ss`, `revoke-preview` → `rp`. `ls`/`list` are interchangeable.
+`screenshot` → `ss`, `revoke-preview` → `rp`, `process` → `proc`/`ps`/`p`.
+`ls`/`list` are interchangeable.
 
 ## Choosing an image
 
@@ -289,11 +299,24 @@ broken images.
 **Run a server in a sandbox and share it:**
 ```sh
 ID=$(tektona s c -i node:22 -o json | jq -r .id)
-tektona ssh "$ID" -- 'cd /workspace && npm start &'
+tektona sandbox process run "$ID" -d --name web --cwd /workspace -- npm start
 tektona sandbox preview "$ID" 3000 --ttl 4h --open
 ```
+Prefer `sandbox process run -d` over `ssh -- 'npm start &'`: the process is
+server-owned (survives the SSH session), named, tailable
+(`process logs "$ID" web -f`), and stoppable (`process stop "$ID" web`).
 Token-bearing URL by default. Pass `--public` at create time to get a
 durable token-less URL via `sandbox preview` instead.
+
+**Run a long, network-silent job without it getting auto-paused:**
+```sh
+tektona sandbox process run "$ID" --prevent-auto-pause -- ./train.sh   # pins the sandbox awake while it runs
+tektona sandbox process run "$ID" -d --name build --autostart -- make   # relaunched on every boot
+```
+`--prevent-auto-pause` keeps the sandbox active for the process's lifetime (an
+alternative to `--auto-pause never` scoped to one process). `--on-suspend
+preserve|stop|restart_after_resume` controls what happens to a process across a
+pause.
 
 **Clone a git repo inside a sandbox:**
 ```sh

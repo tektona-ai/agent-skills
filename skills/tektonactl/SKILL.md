@@ -1,6 +1,6 @@
 ---
 name: tektonactl
-description: Use when doing computer use inside a Tektona sandbox — capturing screenshots, clicking, typing, scrolling, reading the clipboard, or driving Chrome on the sandbox's desktop. Also covers printing Tektona's egress CA (`tektonactl ca cert`) so tools with their own trust store (e.g. Java keytool) can import it. Invoked from outside via `tektona ssh <id> -- tektonactl ...`.
+description: Use when doing work inside a Tektona sandbox — running or managing processes (background servers, one-off commands, interactive shells, logs, autostart) via `tektonactl process`, or computer use (screenshots, clicking, typing, scrolling, clipboard, driving Chrome on the desktop). Also covers printing Tektona's egress CA (`tektonactl ca cert`) so tools with their own trust store (e.g. Java keytool) can import it. Invoked from outside via `tektona ssh <id> -- tektonactl ...`.
 ---
 
 # tektonactl — in-sandbox control tool
@@ -58,6 +58,7 @@ are accepted.
 
 ```
 tektonactl get                        # identity, uptime, image digest (aliases: info, show)
+tektonactl process <subcommand>       # run and manage processes (aliases: proc, ps)
 tektonactl desktop <subcommand>       # GUI: screenshot, mouse, keyboard, clipboard
 tektonactl ca cert                    # print Tektona's egress CA as PEM
 ```
@@ -96,6 +97,43 @@ tektonactl ca cert | keytool -importcert -alias tektona \
 
 Read the live cert at boot — never bake the CA into your image: it rotates, and a
 baked copy goes stale.
+
+## `tektonactl process` — run background work
+
+The primary way an in-sandbox agent runs background processes. It targets **this
+sandbox** (no id), talks to the same process manager the outside
+`tektona sandbox process` commands use, and needs no API key or network hop.
+Anything started here is fully visible and controllable from outside, and vice
+versa.
+
+```sh
+# Start a background server; -d returns immediately with its id
+tektonactl process run -d --name dev-server -- npm run dev
+
+# Wait for a one-off command and exit with its code (stdin piped through)
+tektonactl process run -- npm test
+
+# Interactive shell (real PTY)
+tektonactl process run -t -- bash
+
+tektonactl process ls                     # running + finished (alias: list)
+tektonactl process get <ref>              # by name or ULID (aliases: info, show)
+tektonactl process logs <ref> -f [--tail N]
+tektonactl process attach <ref>           # reattach: replays recent output, then live
+tektonactl process stop <ref> [--force]   # SIGTERM → grace → SIGKILL (group)
+tektonactl process signal <ref> SIGHUP
+```
+
+`run` flags: `-d/--detach`, `-t/--tty`, `--name`, `--env K=V` (repeatable),
+`--cwd`, `--user`, `--timeout <dur>`, `--prevent-auto-pause` (keep the sandbox
+awake while it runs), `--on-suspend preserve|stop|restart_after_resume`,
+`--autostart` (relaunch on every boot; requires `--name`), `--max-log-bytes`
+(`0` = logging off).
+
+A `--name` is `[a-z0-9_-]`, unique among running processes, and lets you address
+the process later without the ULID. Processes are server-owned: they survive
+this shell disconnecting. Prefer this over `npm start &` — a shell-backgrounded
+process isn't tracked, tailable, or stoppable by name.
 
 ## `tektonactl desktop`
 
