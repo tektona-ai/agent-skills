@@ -58,7 +58,7 @@ are accepted.
 
 ```
 tektonactl get                        # identity, uptime, image digest (aliases: info, show)
-tektonactl process <subcommand>       # run and manage processes (aliases: proc, ps)
+tektonactl process <subcommand>       # run and manage processes (aliases: proc, ps, p)
 tektonactl desktop <subcommand>       # GUI: screenshot, mouse, keyboard, clipboard
 tektonactl ca cert                    # print Tektona's egress CA as PEM
 ```
