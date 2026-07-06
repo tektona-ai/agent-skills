@@ -124,7 +124,7 @@ tektonactl process stop <ref> [--force]   # SIGTERM → grace → SIGKILL (group
 tektonactl process signal <ref> SIGHUP
 ```
 
-`run` flags: `-d/--detach`, `-t/--tty`, `--name`, `--env K=V` (repeatable),
+`run` flags: `-d/--detach`, `-t/--tty`, `-n/--name`, `--env K=V` (repeatable),
 `--cwd`, `--user`, `--timeout <dur>`, `--prevent-auto-pause` (keep the sandbox
 awake while it runs), `--on-suspend preserve|stop|restart_after_resume`,
 `--autostart` (relaunch on every boot; requires `--name`), `--max-log-bytes`
