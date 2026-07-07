@@ -317,7 +317,7 @@ tektona sandbox process run "$ID" -d --name build --autostart -- make   # relaun
 alternative to `--auto-pause never` scoped to one process). `--on-hibernate
 preserve|stop|restart_after_resume` controls what happens to a process across a
 hibernate pause. `--timeout` takes a Go duration (e.g. `30s`, `5m`, `1h`; `0` =
-no timeout). Give background processes a speaking `--name` that fits the
+no timeout; sub-second values round up to the 1s minimum). Give background processes a speaking `--name` that fits the
 purpose, e.g. `run-frontend` or `build-backend`; if you omit it, a random
 memorable name is generated.
 

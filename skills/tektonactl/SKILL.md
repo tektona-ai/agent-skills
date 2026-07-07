@@ -126,7 +126,8 @@ tektonactl process signal <ref> SIGHUP
 
 `run` flags: `-d/--detach`, `-t/--tty`, `-n/--name`, `--env K=V` (repeatable),
 `--cwd`, `--user`, `--timeout <dur>` (Go duration, e.g. `30s`, `5m`, `1h`; `0` =
-no timeout), `--prevent-auto-pause` (keep the sandbox awake while it runs),
+no timeout; sub-second values round up to the 1s minimum), `--prevent-auto-pause`
+(keep the sandbox awake while it runs),
 `--on-hibernate preserve|stop|restart_after_resume`, `--autostart` (relaunch on
 every boot; requires `--name`), `--max-log-bytes` (`0` = logging off).
 
