@@ -314,9 +314,12 @@ tektona sandbox process run "$ID" --prevent-auto-pause -- ./train.sh   # pins th
 tektona sandbox process run "$ID" -d --name build --autostart -- make   # relaunched on every boot
 ```
 `--prevent-auto-pause` keeps the sandbox active for the process's lifetime (an
-alternative to `--auto-pause never` scoped to one process). `--on-suspend
+alternative to `--auto-pause never` scoped to one process). `--on-hibernate
 preserve|stop|restart_after_resume` controls what happens to a process across a
-pause.
+hibernate pause. `--timeout` takes a Go duration (e.g. `30s`, `5m`, `1h`; `0` =
+no timeout). Give background processes a speaking `--name` that fits the
+purpose, e.g. `run-frontend` or `build-backend`; if you omit it, a random
+memorable name is generated.
 
 **Clone a git repo inside a sandbox:**
 ```sh

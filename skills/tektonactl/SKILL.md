@@ -125,13 +125,15 @@ tektonactl process signal <ref> SIGHUP
 ```
 
 `run` flags: `-d/--detach`, `-t/--tty`, `-n/--name`, `--env K=V` (repeatable),
-`--cwd`, `--user`, `--timeout <dur>`, `--prevent-auto-pause` (keep the sandbox
-awake while it runs), `--on-suspend preserve|stop|restart_after_resume`,
-`--autostart` (relaunch on every boot; requires `--name`), `--max-log-bytes`
-(`0` = logging off).
+`--cwd`, `--user`, `--timeout <dur>` (Go duration, e.g. `30s`, `5m`, `1h`; `0` =
+no timeout), `--prevent-auto-pause` (keep the sandbox awake while it runs),
+`--on-hibernate preserve|stop|restart_after_resume`, `--autostart` (relaunch on
+every boot; requires `--name`), `--max-log-bytes` (`0` = logging off).
 
 A `--name` is `[a-z0-9_-]`, unique among running processes, and lets you address
-the process later without the ULID. Processes are sandbox-owned: they survive
+the process later without the ULID. Best practice: pick a speaking name that
+fits the purpose, e.g. `run-frontend` or `build-backend`; if you omit `--name`,
+a random memorable name is generated. Processes are sandbox-owned: they survive
 this shell disconnecting. Prefer this over `npm start &` — a shell-backgrounded
 process isn't tracked, tailable, or stoppable by name.
 
