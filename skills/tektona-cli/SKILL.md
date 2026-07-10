@@ -206,6 +206,10 @@ update.
 | Create a proxy profile | `tektona egress-proxy apply <name> [--scope project\|org] [--default]` (`--default` is project-scope only) |
 | Add an inject rule | `tektona egress-proxy rule add <name> --host <domain> --header 'NAME=TEMPLATE'` |
 | Delete a proxy profile | `tektona egress-proxy rm <name>` |
+| List repositories | `tektona repository ls` (alias `repo`) `[-o json]` |
+| Register a repository | `tektona repository create --url <clone-url> [--name <n>] [--default-branch <b>] [--default]` |
+| Show a repository | `tektona repository get <name-or-url>` |
+| Remove a repository | `tektona repository rm <name-or-url>` |
 | List git credentials | `tektona git-credential ls` (alias `gitcred`) `[--scope all\|project\|personal]` |
 | Create a git credential (token via stdin) | `tektona git-credential create --name <slug> --display-name <label> --forge github\|gitlab --scope project\|personal --repo <url-or-name>` |
 | Update a git credential (token via stdin if piped, else kept) | `tektona git-credential update <name> --scope ... [--display-name <l>] [--forge ...] [--repo <url-or-name>]` |
@@ -214,7 +218,7 @@ update.
 Add `-o json` to most commands for machine-readable output. Aliases:
 `sandbox` → `s`, `org` → `o`/`orgs`, `project` → `p`/`proj`/`projects`, `create` → `c`/`new`,
 `delete` → `rm`/`d`/`destroy`, `egress-network-policy` → `np`,
-`egress-proxy` → `egress`/`egress-proxy-profile`, `git-credential` → `gitcred`,
+`egress-proxy` → `egress`/`egress-proxy-profile`, `repository` → `repo`/`repos`/`repositories`, `git-credential` → `gitcred`,
 `screenshot` → `ss`, `revoke-preview` → `rp`, `process` → `proc`/`ps`/`p`.
 `ls`/`list` are interchangeable.
 
@@ -330,13 +334,23 @@ Always clone over **HTTPS**, never SSH (`git@…` / `ssh://` URLs do not
 authenticate). Private clones **authenticate automatically** — Tektona injects
 the project's (or your personal) stored git credential for the repo at the egress
 boundary, so the token never enters the sandbox and you pass nothing in the URL.
-If a clone fails with an auth error, no credential covers that repo; register the
-repo in the project, then add a credential for it:
+If a clone fails with an auth error, no credential covers that repo. Wiring one up
+is **two steps, in order** — register the repo in the project, then add a
+credential that unlocks it:
 
 ```sh
+# 1. register the repo (once per project); --name defaults to the URL's last segment
+tektona repository create --url https://github.com/acme/api
+
+# 2. add a credential that unlocks it (token read from stdin)
 gh auth token | tektona git-credential create --name acme-bot \
-  --display-name "Acme bot" --forge github --scope project --repo <url-or-name>
+  --display-name "Acme bot" --forge github --scope project --repo https://github.com/acme/api
 ```
+
+`git-credential create --repo` only *references* a repo already registered in the
+project — it can't create one. If it errors `no repository matches …`, you skipped
+step 1: run `tektona repository create --url <clone-url>` first, then retry.
+List what's registered with `tektona repository ls`.
 
 A credential has an immutable `--name` (the handle it's addressed by) plus a
 `--display-name` label; the token is read from stdin. Rotate it live with
@@ -537,6 +551,11 @@ clipboard, windows) — load the `tektonactl` skill.
   create`, and `update` prompt interactively only on a TTY. An agent must pass
   every input as a flag (`--display-name`/`--name`/`--org`) — a missing required
   flag fails fast with no HTTP call rather than hanging on a prompt.
+- **Adding a git credential before registering the repo.** `git-credential create
+  --repo` only *references* repos already registered in the project — it never
+  creates them. The fix is a real command, not the API or console: run `tektona
+  repository create --url <clone-url>` first (see the private-clone workflow), then
+  retry. Don't go spelunking the OpenAPI spec for a registration endpoint.
 - **Egress blocked unexpectedly.** Default egress network policy is restrictive.
   Either pass `--egress-network-policy tektona/open` at create (the old
   `--network` flag is gone; `--egress-policy` is the alias), or use
