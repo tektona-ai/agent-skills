@@ -176,6 +176,7 @@ update.
 | Copy a tree (parallel) | `tektona sandbox cp -r ./dir <id>:/dst/` (default 3 workers, cap 6) |
 | Stream stdin/stdout | `tar c ./src \| tektona sandbox cp - <id>:/tmp/src.tar` / `tektona sandbox cp <id>:/path -` |
 | Run a command (waits, exits with its code) | `tektona sandbox process run <id> -- <cmd...>` (alias `s p run`) |
+| Run a shell one-liner (`&&`, pipes, globs) | `tektona sandbox process run <id> -s -- 'apt update && apt install -y nginx'` (`-s/--shell`: bash if the image has it, else sh) |
 | Start a background process | `tektona sandbox process run <id> -d --name <name> -- <cmd...>` |
 | Interactive shell (PTY) | `tektona sandbox process run <id> -t -- bash` |
 | List processes | `tektona sandbox process ls <id>` (`--autostart` for definitions) |

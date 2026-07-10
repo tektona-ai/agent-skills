@@ -113,6 +113,10 @@ tektonactl process run -d --name dev-server -- npm run dev
 # Wait for a one-off command and exit with its code (stdin piped through)
 tektonactl process run -- npm test
 
+# Shell one-liner: the command is normally an argv vector (no && / pipes /
+# globs); -s/--shell runs it through a shell (bash if available, else sh)
+tektonactl process run -s -- 'apt update && apt install -y nginx'
+
 # Interactive shell (real PTY)
 tektonactl process run -t -- bash
 
