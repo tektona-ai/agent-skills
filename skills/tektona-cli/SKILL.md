@@ -205,6 +205,7 @@ update.
 | Show a proxy profile + rules | `tektona egress-proxy show <name>` |
 | Create a proxy profile | `tektona egress-proxy apply <name> [--scope project\|org] [--default]` (`--default` is project-scope only) |
 | Add an inject rule | `tektona egress-proxy rule add <name> --host <domain> --header 'NAME=TEMPLATE'` |
+| Remove an inject rule | `tektona egress-proxy rule rm <name> <rule-id>` (rule ids from `show`) |
 | Delete a proxy profile | `tektona egress-proxy rm <name>` |
 | List repositories | `tektona repository ls` (alias `repo`) `[-o json]` |
 | Register a repository | `tektona repository create --url <clone-url> [--name <n>] [--default-branch <b>] [--default]` |
@@ -506,7 +507,8 @@ tektona egress-proxy rule add team-defaults \
 tektona egress-proxy rule add team-defaults \
   --host api.example.com   --header 'Authorization=Bearer ${secret:my-tok}'
 tektona egress-proxy ls                  # NAME / SCOPE / DEFAULT / RULES
-tektona egress-proxy show team-defaults  # the profile and its rules
+tektona egress-proxy show team-defaults  # the profile and its rules (with rule ids)
+tektona egress-proxy rule rm team-defaults <rule-id>  # remove one rule (id from show)
 tektona egress-proxy rm team-defaults
 ```
 
