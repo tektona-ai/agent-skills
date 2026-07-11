@@ -206,6 +206,8 @@ update.
 | Create a proxy profile | `tektona egress-proxy apply <name> [--scope project\|org] [--default]` (`--default` is project-scope only) |
 | Add an inject rule | `tektona egress-proxy rule add <name> --host <domain> --header 'NAME=TEMPLATE'` |
 | Remove an inject rule | `tektona egress-proxy rule rm <name> <rule-id>` (rule ids from `show`) |
+| Attach/switch a proxy profile on an existing sandbox | `tektona sandbox egress-proxy set <id> <profile>` |
+| Detach a sandbox's proxy profile | `tektona sandbox egress-proxy unset <id>` |
 | Delete a proxy profile | `tektona egress-proxy rm <name>` |
 | List repositories | `tektona repository ls` (alias `repo`) `[-o json]` |
 | Register a repository | `tektona repository create --url <clone-url> [--name <n>] [--default-branch <b>] [--default]` |
@@ -523,6 +525,16 @@ otherwise):
 ```sh
 tektona sandbox create -i node:22 --egress-proxy team-defaults
 #   --egress-proxy-profile is the long-form alias of --egress-proxy
+```
+
+Attach, switch, or detach on an **existing** sandbox — no recreate needed. The
+change is confirmed active on the sandbox's node before the command returns.
+The sandbox must be running (resume a paused one first):
+
+```sh
+tektona sandbox egress-proxy set <sandbox_id> team-defaults   # attach, or switch profiles
+tektona sandbox egress-proxy unset <sandbox_id>               # detach — injection stops; the egress network policy stays
+#   `sandbox egress-proxy-profile` is the long-form alias
 ```
 
 **Runtime mutability.** Editing a network policy or proxy profile takes effect on
