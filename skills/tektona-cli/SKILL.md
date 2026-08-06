@@ -188,7 +188,7 @@ update.
 | VNC | `tektona vnc <id> [--browser] [--start-desktop]` |
 | Start desktop | `tektona sandbox desktop start <id>` |
 | Stop desktop | `tektona sandbox desktop stop <id>` |
-| Screenshot to file | `tektona sandbox screenshot <id> -o out.png` |
+| Screenshot to file | `tektona sandbox screenshot <id> -o out.png` (add `--open` to also open it in a viewer) |
 | Preview URL for port | `tektona sandbox preview <id> <port> [--ttl 1h] [--open]` |
 | Revoke preview | `tektona sandbox revoke-preview <id> <token>` |
 | Show lifecycle (effective + source tier) | `tektona sandbox get <id>` (lifecycle rows show each effective value and the tier that set it) |
