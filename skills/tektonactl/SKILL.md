@@ -33,17 +33,15 @@ egress proxy profiles. Use `tektona-sdk` to do the same from TypeScript.
 official desktop image** unless the user specifies their own:
 
 ```sh
-tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:0.4.1 --vnc --browser
+tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:0.4.3 --vnc --browser
 ```
 
 Look up the newest tag at
 <https://github.com/tektona-ai/desktop-x11/pkgs/container/desktop-x11>
-before suggesting a command — the registry may have rolled forward
-since this skill was last published. As of the most recent skill
-release the newest tag is `0.4.1`. The image ref must be deterministic
-— a real tag, a `@sha256:...` digest, or both. Bare `:latest` (no
-digest) is rejected because it floats; bare `image@sha256:...` digests
-are accepted.
+before you suggest a command — the registry rolls forward independently
+of this skill. The image ref must be deterministic — a real tag, a
+`@sha256:...` digest, or both. Bare `:latest` (no digest) is rejected
+because it floats; bare `image@sha256:...` digests are accepted.
 
 ## When NOT to use
 
