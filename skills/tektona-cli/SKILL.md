@@ -1,6 +1,6 @@
 ---
 name: tektona-cli
-description: Use when the user mentions Tektona, or runs `tektona` / `tektonactl`. Covers remote sandboxes (create, SSH, VNC, preview URLs, file copy, fork), processes inside a sandbox (background servers, logs, autostart), sandbox lifecycle (auto-pause, auto-delete), sharing and ownership, orgs, projects and roles, and credentials injected at the egress boundary (secrets, git credentials, egress network policy and proxy profiles).
+description: Use when the user drives Tektona from a shell, or runs `tektona` / `tektonactl`. Covers remote sandboxes (create, SSH, VNC, preview URLs, file copy, fork), processes inside a sandbox (background servers, logs, autostart), sandbox lifecycle (auto-pause, auto-delete), sharing and ownership, orgs, projects and roles, and credentials injected at the egress boundary (secrets, git credentials, egress network policy and proxy profiles). For Tektona from TypeScript or JavaScript code, use the `tektona-sdk` skill instead.
 ---
 
 # Tektona CLI

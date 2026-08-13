@@ -32,7 +32,7 @@ pnpm add @tektona/sdk
 
 ## Install the skills
 
-Both skills are published via GitHub. Use the [Vercel `skills`
+The skills are published via GitHub. Use the [Vercel `skills`
 CLI](https://github.com/vercel-labs/skills):
 
 ### Canonical (short URL via mirror repo)

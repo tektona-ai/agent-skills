@@ -1,6 +1,6 @@
 ---
 name: tektona-sdk
-description: Use when writing TypeScript or JavaScript against Tektona with `@tektona/sdk` — creating sandboxes from code, running processes and streaming their output, preview URLs, SSH and VNC access tokens, desktop control, secrets, egress network policies, orgs, projects, repositories, registries, git credentials, pagination, and typed errors.
+description: Use when Tektona is driven from TypeScript or JavaScript code with the `@tektona/sdk` package, rather than from a shell. Covers the `Tektona` client and its scope, sandboxes created from code, processes and their streamed output, preview URLs, SSH and VNC access tokens, secrets, egress network policies, pagination, and typed errors. For the `tektona` command line, use the `tektona-cli` skill instead.
 ---
 
 # Tektona TypeScript SDK
@@ -8,9 +8,11 @@ description: Use when writing TypeScript or JavaScript against Tektona with `@te
 ## Overview
 
 `@tektona/sdk` is the official TypeScript client for the Tektona API. It runs on
-Node.js (>= 22), Bun, Deno, and edge runtimes with `fetch`. Use it to drive
-sandboxes from your own code — a service, a worker, an agent harness, a test
-suite — instead of shelling out to the CLI.
+Node.js (>= 22), Bun and Deno. Use it to drive sandboxes from your own code — a
+service, a worker, an agent harness, a test suite — instead of the CLI.
+
+The client constructor reads `process.env` unconditionally, so an edge runtime
+needs a `process` shim as well as `fetch`.
 
 The package is alpha. The API can change before `1.0`.
 
@@ -45,17 +47,26 @@ await tek.secret.create({
   value: process.env.ANTHROPIC_API_KEY!,
 })
 
-// The rule that injects it is NOT in the SDK facade yet — see "Gaps" below.
+// The PROFILE that carries the injection rule is NOT in the SDK facade yet.
+// Create it once with the CLI — see "Gaps" below.
+// tektona egress-proxy apply team-defaults --scope project
 // tektona egress-proxy rule add team-defaults \
 //   --host api.anthropic.com --header 'x-api-key=${secret:anthropic}'
 
-// ENV — non-secret config, visible in-box (the right place for these)
 const sandbox = await tek.sandbox.create({
   image: 'node:22',
+  egress_proxy_profile: 'team-defaults',   // ← without this, nothing is injected
+  // ENV — non-secret config, visible in-box (the right place for these)
   env: { ANTHROPIC_MODEL: 'claude-sonnet-4-5' },
   // NOT: env: { ANTHROPIC_API_KEY: '…' }  ← that would expose the key in the box
 })
 ```
+
+**A secret alone injects nothing.** The rule lives on a *profile*, and a sandbox
+only gets a profile's rules when it names one in `egress_proxy_profile` at create
+time, or when that profile is the project default (`--default` on
+`egress-proxy apply`). Skip both and the request leaves unauthenticated, with the
+key neither in the box nor on the wire.
 
 Two controls shape outbound traffic, and they are independent. The **gate**
 (`egress_network_policy`) decides which hosts a sandbox may reach at all. The
@@ -88,8 +99,10 @@ const tek = new Tektona({
 })
 ```
 
-Every option falls back to its environment variable. The client is cheap and
-stateless — construct one per process and reuse it.
+Only `apiKey`, `apiUrl`, `org` and `project` fall back to an environment
+variable. `timeoutMs` and `headers` do not — they default to 60 seconds and no
+extra headers. The client is cheap and stateless: construct one per process and
+reuse it.
 
 **The SDK reads env vars only.** It does **not** read the CLI's stored key
 (`~/.config/tektona/api_key`) or the repo-local `.tektona/config.json` that
@@ -113,8 +126,22 @@ A scoped call with no org or project — neither per-call nor default — throws
 
 ## Quick reference — `@tektona/sdk`
 
-`tek.sandbox.create` / `.get` / `.list` return a `Sandbox` instance. Every
-per-sandbox action exists twice: `tek.sandbox.<op>(id, …)` and `sandbox.<op>(…)`.
+`tek.sandbox.create` and `.get` return a `Sandbox` instance; `.list` returns a
+`Page<Sandbox>`. Lifecycle, sharing and observability actions exist twice —
+`sandbox.pause(…)` and `tek.sandbox.pause(id, …)` are the same call.
+
+Three asymmetries bite:
+
+- **`delete` is service-only.** There is no `sandbox.delete()`. Call
+  `tek.sandbox.delete(id)`.
+- **The sub-namespaces are instance-only.** `sandbox.process`, `sandbox.ssh`,
+  `sandbox.vnc`, `sandbox.desktop` and `sandbox.preview` have no `tek.sandbox.*`
+  equivalent. Get an instance first with `tek.sandbox.get(id)`.
+- **Where the service does mirror them, the names differ** —
+  `sandbox.ssh.access()` is `tek.sandbox.createSshAccess(id)`,
+  `sandbox.desktop.start()` is `tek.sandbox.startDesktop(id)`,
+  `sandbox.preview.create(port)` is `tek.sandbox.preview(id, port)`. There is no
+  flat process surface at all.
 
 | Task | Code |
 |---|---|
@@ -152,21 +179,27 @@ per-sandbox action exists twice: `tek.sandbox.<op>(id, …)` and `sandbox.<op>(�
 | Interactive PTY | `handle.attach({ onData })` → `{ write, resize, signal, detach }` |
 | Address a process later | `sandbox.process.getByName('dev-server')` / `.getById(ulid)` |
 | List processes | `sandbox.process.list({ autostart: true })` |
+| Toggle autostart | `handle.setAutostart(false)` / `sandbox.process.setAutostart(ref, false)` |
 | Secrets | `tek.secret.list()` / `.create(body)` / `.update(id, body)` / `.delete(id)` |
 | Egress network policies | `tek.egressNetworkPolicy.list()` / `.create()` / `.get(name)` / `.update()` / `.delete()` |
 | Org-scoped policies | `tek.egressNetworkPolicy.listOrgScoped()` and the other `*OrgScoped` methods |
-| System policies (read-only) | `tek.egressNetworkPolicy.listSystem()` / `.getSystem('tektona/dev')` |
+| System policies (read-only) | `tek.egressNetworkPolicy.listSystem()` — see the `getSystem` warning below |
 | Orgs | `tek.org.list()` / `.get(org)` / `.create()` / `.update()` / `.listMembers(org)` |
 | Projects | `tek.project.list()` / `.get(name)` / `.create()` / `.update()` / `.delete()` |
 | Projects across every org | `tek.project.listForUser()` / `.listAllForUser()` |
 | Sandbox settings | `tek.project.getSandboxSettings()` / `tek.org.getSandboxSettings()` (+ `update…`) |
 | Repositories | `tek.repository.list()` / `.create({ url, name })` / `.update()` / `.delete()` |
 | Git credentials | `tek.gitCredential.list()` / `.create(body)` / `.update(id, body, { scope })` / `.delete(id, { scope })` |
-| Registries | `tek.registry.list()` / `.create(body, { dryRun: true })` / `.update()` / `.delete()` |
+| Registries | `tek.registry.list()` / `.get(name)` / `.create(body, { dryRun: true })` / `.update()` / `.delete()` |
 | Locations | `tek.location.list()` |
 
-Every `list()` returns one `Page<T>`. Every list-backed service also has a
-`listAll()` async iterator that walks the pages for you.
+**Most `list()` calls return one `Page<T>`** — `{ items, hasMore, nextCursor,
+totalCount }` — and pair with a `listAll()` async iterator that walks the pages.
+Four return a **plain array** and have no `listAll`: `tek.location.list()`,
+`sandbox.process.list()`, `sandbox.listPorts()` and
+`sandbox.listEgressInjectionRules()`. `tek.egressNetworkPolicy.listSystem()`
+returns `{ items, system_denies }`, which is not a `Page` either. Reading
+`.items` off the array-returning ones gives `undefined`.
 
 `sandbox.list` needs an org and narrows to a project when one is set. A per-call
 `project` **overrides** the client default, but it cannot clear it — passing
@@ -175,7 +208,7 @@ construct a client with `org` only.
 
 ## snake_case bodies, camelCase options
 
-This is the mistake that costs the most time. The rule is mechanical:
+The rule is mechanical:
 
 - **A request body is the wire type — snake_case.** `egress_network_policy`,
   `auto_pause_after`, `share_type`, `start_desktop`, `max_log_bytes`.
@@ -192,9 +225,15 @@ const sandbox = await tek.sandbox.create({
 sandbox.egressNetworkPolicy                 // instance field → camelCase
 ```
 
-A misspelled body field is silently ignored by the API, so the sandbox comes up
-with the **project default** policy instead of the one you asked for. If egress
-behaves unexpectedly, check the casing first.
+Getting it wrong fails loudly, in one of two places. A body written **inline** as
+an object literal gets TypeScript's excess-property check, so
+`egressNetworkPolicy` does not compile and the error names the correct field.
+That check does not fire when the body arrives as a **variable**, and there is no
+compiler at all in plain JavaScript — but the API schema sets
+`additionalProperties: false`, so the request is rejected with **422** and the
+SDK raises `InvalidArgumentError` naming the offending field.
+
+Nothing is silently dropped. Read a 422 on create as a field-name question.
 
 Process options are the exception that proves the rule: `run`/`start` take
 SDK-owned camelCase options (`preventAutoPause`, `onHibernate`,
@@ -242,15 +281,25 @@ helper — poll `get`:
 ```ts
 import { SandboxState } from '@tektona/sdk'
 
+// Only these three lead to running. Anything else is terminal or needs a resume.
+const PENDING: string[] = [SandboxState.Scheduling, SandboxState.BuildingImage, SandboxState.Resuming]
+
 let sandbox = await tek.sandbox.create({ image: 'node:22' }, { timeoutMs: 120_000 })
+const deadline = Date.now() + 300_000
 while (sandbox.state !== SandboxState.Running) {
-  if (sandbox.state === SandboxState.Error || sandbox.state === SandboxState.Deleted) {
+  if (!PENDING.includes(sandbox.state)) {
     throw new Error(`sandbox ${sandbox.id} settled in ${sandbox.state}`)
   }
+  if (Date.now() > deadline) throw new Error(`sandbox ${sandbox.id} never reached running`)
   await new Promise((r) => setTimeout(r, 1000))
   sandbox = await tek.sandbox.get(sandbox.id)
 }
 ```
+
+Wait on an **allow-list** of pending states, not a deny-list of failures.
+`SandboxState` has nine members: a deny-list that names only `error` and
+`deleted` spins forever on `hibernated` or `suspended`, which a sandbox reaches
+on its own through auto-pause. Bound the loop with a deadline as well.
 
 **A `Sandbox` instance is a snapshot, not a live view.** `state` and the other
 fields are frozen at the moment you fetched it. `pause()` returns the new state
@@ -288,16 +337,18 @@ console.log(preview.url)     // check preview.kind before reading preview.token
 ```
 
 `waitForPort` watches the process while it polls, so a crashed server rejects
-immediately with `ProcessExitedError` (carrying `exitCode`, `signal`, and a tail
-of `stderr`) instead of waiting out the timeout. On timeout it throws
-`TimeoutError` and **leaves the process running** — it never stops anything.
+immediately with `ProcessExitedError` instead of waiting out the timeout. It
+carries `exitCode`, `signal`, and a tail of the error output — that tail is
+stderr in pipe mode, and the merged terminal output for a `tty` process, which
+has no separate stderr. On timeout it throws `TimeoutError` and **leaves the
+process running** — it never stops anything.
 
 Prefer `process.start` over `process.run('npm start &')`. The process is
 sandbox-owned, so it survives your client disconnecting, and it is named,
 tailable, and stoppable later from any client:
 
 ```ts
-const again = await sandbox.process.getByName('dev-server')
+const again = await sandbox.process.getByName('dev-server')   // needs a running sandbox
 for await (const ev of again.logs({ follow: true, tail: 100 })) {
   process.stdout.write(ev.data)   // ev: { seq, stream, ts, data: Uint8Array }
 }
@@ -307,7 +358,8 @@ await again.stop()                // TERM → grace → KILL; { force: true } sk
 Give a background process a speaking `name` that fits its purpose, for example
 `run-frontend` or `build-backend`. A random memorable name is generated when you
 omit it. `autostart: true` persists the definition and relaunches it on every
-boot; it requires `name`.
+boot; it requires `name`. Toggle it later with `handle.setAutostart(enabled)` or
+`sandbox.process.setAutostart(ref, enabled)`.
 
 **Drive an interactive shell:**
 
@@ -353,32 +405,53 @@ for await (const sb of tek.sandbox.listAll({ state: ['running'] })) console.log(
 **Handle errors and back off:**
 
 ```ts
-import { RateLimitError, ConflictError, isHttpStatus } from '@tektona/sdk'
+import { RateLimitError } from '@tektona/sdk'
 
-try {
-  await tek.sandbox.create({ image })
-} catch (err) {
-  if (err instanceof RateLimitError) {
-    await new Promise((r) => setTimeout(r, err.retryAfterMs ?? 1000))
-  } else if (isHttpStatus(err, 404)) {
-    // gone
+async function createWithRetry(body: CreateSandboxBody, attempts = 3) {
+  for (let i = 0; ; i++) {
+    try {
+      return await tek.sandbox.create(body)
+    } catch (err) {
+      if (!(err instanceof RateLimitError) || i >= attempts - 1) throw err
+      await new Promise((r) => setTimeout(r, err.retryAfterMs ?? 1000 * 2 ** i))
+    }
   }
-  throw err
 }
 ```
 
 `isHttpStatus(err, status)` is the canonical way to branch on a status. Errors
 form a hierarchy under `TektonaError`. HTTP errors are `ApiError` subclasses
 carrying `statusCode` — `AuthenticationError` (401), `AuthorizationError` (403),
-`InvalidArgumentError` (400/422), `NotFoundError` (404, with
-`SandboxNotFoundError` / `SecretNotFoundError` / `ProcessNotFoundError`),
-`QuotaExceededError` (402), `ConflictError` (409, with `LoggingDisabledError`),
-`RateLimitError` (429). Sandbox-domain errors sit under `SandboxError` —
-`TimeoutError`, `ProcessExitedError`, `CommandExitError`,
-`EgressNetworkPolicyError`, `NotEnoughSpaceError`.
+`InvalidArgumentError` (400/422), `NotFoundError` (404), `QuotaExceededError`
+(402), `ConflictError` (409), `RateLimitError` (429).
+
+**Catch the base classes, not the specific ones.** The SDK exports several
+subclasses it never constructs — `SandboxNotFoundError`, `SecretNotFoundError`,
+`FileNotFoundError`, `CommandExitError`, `NotEnoughSpaceError` and
+`EgressNetworkPolicyError` are types only, so `instanceof` against them never
+fires. Every 404 arrives as a plain `NotFoundError`. The subclasses that are
+really thrown are `ProcessNotFoundError` (404 on an unknown process ref),
+`LoggingDisabledError` (409 from `logs()` on a process with `maxLogBytes: 0`),
+`TimeoutError` and `ProcessExitedError` (both from `waitForPort`), and
+`ProcessStreamClosedError` when a stream drops.
+
+`InvalidArgumentError` is also raised **client-side**, before any request, for a
+missing scope or an out-of-range preview TTL. Those instances carry no
+`statusCode`, so branch with `isHttpStatus` or `instanceof`, never
+`err.statusCode === 400`.
 
 **The SDK never retries for you.** There is no built-in backoff. Write your own
 loop for 429 and for transient 5xx, keyed on `err.retryAfterMs` where it is set.
+
+**`getSystem` cannot fetch a system policy — use `listSystem`.** Both system
+policy names contain a slash (`tektona/dev`, `tektona/open`), and
+`getSystem(name)` puts the name straight into the path. The extra segment misses
+the route, so every realistic call 404s. List and filter instead:
+
+```ts
+const { items } = await tek.egressNetworkPolicy.listSystem()
+const dev = items?.find((p) => p.name === 'tektona/dev')
+```
 
 **Delete calls are idempotent.** `sandbox.delete`, `secret.delete`,
 `project.delete`, `repository.delete`, `registry.delete`, `gitCredential.delete`,
@@ -405,9 +478,22 @@ starts at the pause — read `'7d'` as "delete 7 days after it pauses". A resume
 clears the clock. `preventAutoPause: true` on a single process is the narrower
 alternative: it pins the sandbox awake for that process's lifetime only.
 
-**Waking is automatic.** You do not need `resume()` before a process call or a
-preview request — the access resumes the sandbox and then serves the request.
-Expect a few seconds of extra latency on first contact with a paused sandbox.
+**Waking is only partly automatic — this catches people.** Starting a process
+(`process.run` and `process.start`) resumes a paused sandbox and then serves the
+request. **Every other process call fails instead**: `getByName`, `getById`,
+`list`, `logs`, `wait`, `attach`, `stop`, `signal`, `setAutostart` and
+`waitForPort` throw `ConflictError` (409) against a paused sandbox, because the
+SDK does not ask the API to resume for them. Reconnecting to a long-lived
+process is exactly the case that hits this:
+
+```ts
+const sandbox = await tek.sandbox.get(id)
+if (sandbox.state !== SandboxState.Running) await sandbox.resume()
+const dev = await sandbox.process.getByName('dev-server')   // 409 without the resume
+```
+
+Call `resume()` first when you re-attach to a sandbox that may have auto-paused.
+Expect a few seconds of extra latency on first contact.
 
 ## Gaps — what the facade does not cover yet
 
@@ -417,6 +503,7 @@ method**:
 | Missing | Use instead |
 |---|---|
 | Egress proxy profiles and inject rules (`tek.egressProxyProfile` is an empty stub) | The `tektona egress-proxy` CLI commands, or `generated.createOrgProjectEgressProxyProfile` / `addOrgProjectEgressProxyProfileRule` |
+| Attaching or detaching a profile on a **running** sandbox | CLI only — `tektona sandbox egress-proxy set/unset`. Not in `generated` either. Name the profile at create time instead |
 | Hard reset | `generated.resetSandbox` |
 | Sandbox visibility (public / private) | `public: true` at create time, or `generated.setSandboxVisibility` |
 | Project lifecycle defaults | `generated.getProjectLifecycleDefaults` / `updateProjectLifecycleDefaults` |
@@ -453,6 +540,12 @@ detail rather than a typed `TektonaError`.
   policies to find one that allows what you need.
 - **Address a sandbox by its full 26-character ULID.** A prefix is rejected.
 - **A `Sandbox` is a snapshot.** Re-`get` it when the state matters.
+- **Resume before you re-attach.** Only `process.run` / `process.start` wake a
+  paused sandbox. Every other process call throws `ConflictError` (409).
+- **`SandboxState` does not cover every state the API returns.** It omits
+  `failed`, among others. Wait on an allow-list of pending states and treat
+  anything else as terminal, or a poll loop hangs.
+- **There is no `sandbox.delete()`.** Delete is `tek.sandbox.delete(id)`.
 - **`fork()` returns a plain object** (`{ id, state, cache_key, image_ref }`),
   not a `Sandbox`. Call `tek.sandbox.get(fork.id)` for the instance.
 - **Check `preview.kind` before reading `preview.token`.** A `public` result has
