@@ -231,8 +231,8 @@ are admin on every project automatically.
 | Change a repository (unset flags keep their value) | `tektona repository update <name-url-or-id> [--name <n>] [--url <u>] [--default-branch <b>] [--default]` |
 | Remove a repository | `tektona repository rm <name-url-or-id>` |
 | List git credentials | `tektona git-credential ls` (alias `gitcred`) `[--scope all\|project\|personal]` |
-| Create a git credential (token via stdin) | `tektona git-credential create --name <slug> --display-name <label> --forge github\|gitlab --scope project\|personal --repo <url-or-name>` |
-| Update a git credential (token via stdin if piped, else kept) | `tektona git-credential update <name> --scope ... [--display-name <l>] [--forge ...] [--repo <url-or-name>]` |
+| Create a git credential (token via stdin) | `tektona git-credential create --name <slug> --display-name <label> --forge github\|gitlab --scope project\|personal --repo <url-name-or-id>` |
+| Update a git credential (token via stdin if piped, else kept) | `tektona git-credential update <name> --scope ... [--display-name <l>] [--forge ...] [--repo <url-name-or-id>]` |
 | Delete a git credential | `tektona git-credential rm <name> --scope ...` |
 
 Add `-o json` to most commands for machine-readable output. Aliases:
