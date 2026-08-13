@@ -204,6 +204,7 @@ are admin on every project automatically.
 | VNC | `tektona vnc <id> [--browser] [--start-desktop]` |
 | Start desktop (needs a desktop image — see below) | `tektona sandbox desktop start <id>` |
 | Stop desktop | `tektona sandbox desktop stop <id>` |
+| Desktop status | `tektona sandbox desktop status <id>` (prints `active` or `inactive`) |
 | Screenshot to file | `tektona sandbox screenshot <id> -o out.png` (add `--open` to also open it in a viewer) |
 | Preview URL for port | `tektona sandbox preview <id> <port> [--ttl 1h] [--open]` |
 | Revoke preview | `tektona sandbox revoke-preview <id> <token>` |

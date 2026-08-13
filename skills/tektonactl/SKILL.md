@@ -158,8 +158,9 @@ tektonactl desktop status               # active | inactive
 tektonactl desktop display              # current resolution
 ```
 
-You can also start the desktop from outside via
-`tektona sandbox desktop start <id>` (see the `tektona-cli` skill).
+You can also start the desktop and read its status from outside via
+`tektona sandbox desktop start <id>` and `tektona sandbox desktop status <id>`
+(see the `tektona-cli` skill).
 
 ### Screenshot
 
@@ -216,6 +217,8 @@ tektonactl desktop click 600 400 --screenshot > after.png
   sandbox. Wrap with `tektona ssh <id> -- tektonactl ...` (see the
   `tektona-cli` skill for SSH usage).
 - **Calling input commands before `desktop start`.** They fail until the X
-  session is running. Run `tektonactl desktop status` first if unsure.
+  session is running. Run `tektonactl desktop status` first if unsure. From
+  outside the sandbox, `tektona sandbox desktop status <id>` gives the same
+  answer without an SSH session.
 - **Coordinates outside the current resolution.** Check
   `tektonactl desktop display`.
