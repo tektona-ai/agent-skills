@@ -1,6 +1,6 @@
 ---
 name: tektona-cli
-description: Use when the user mentions Tektona, or runs `tektona` / `tektonactl`. Covers remote sandboxes (create, SSH, VNC, preview URLs, file copy, fork), processes inside a sandbox (background servers, logs, autostart), sandbox lifecycle (auto-pause, auto-delete), orgs and projects, and credentials injected at the egress boundary (secrets, git credentials, egress network policy and proxy profiles).
+description: Use when the user mentions Tektona, or runs `tektona` / `tektonactl`. Covers remote sandboxes (create, SSH, VNC, preview URLs, file copy, fork), processes inside a sandbox (background servers, logs, autostart), sandbox lifecycle (auto-pause, auto-delete), sharing and ownership, orgs, projects and roles, and credentials injected at the egress boundary (secrets, git credentials, egress network policy and proxy profiles).
 ---
 
 # Tektona CLI
@@ -74,6 +74,9 @@ tektona api-key show
 Override per-invocation with `--api-key` or `TEKTONA_API_KEY`. Override the
 API URL with `--api-url` or `TEKTONA_API_URL`.
 
+`tektona login` sets the API URL, key, and default org/project in one pass, but
+it **only prompts** — it takes no flags. Agents use `api-key set` and `ctx set`.
+
 ## Set context (org + project)
 
 Almost every command runs in the active org/project context. Set it once:
@@ -135,6 +138,13 @@ project names match `^[a-z0-9][a-z0-9-]*[a-z0-9]$`; `tektona` is reserved (and
 `personal` for orgs). The name is fixed at creation and can't be changed on
 update.
 
+**Roles decide what a 403 means.** A project **reader** can view a shared sandbox
+but not create one. A **writer** creates and operates sandboxes, and can *use* a
+project or org secret without ever seeing its value. Project-level material —
+shared secrets and git credentials, egress network policies, container
+registries, project settings and members — needs project **admin**. Org owners
+are admin on every project automatically.
+
 ## Quick reference — `tektona`
 
 | Task | Command |
@@ -151,10 +161,16 @@ update.
 | Create sandbox | `tektona sandbox create -i <image> [--cpu N --memory N --disk N --env K=V --egress-network-policy <policy> --egress-proxy <profile>]` |
 | Create + SSH in | `tektona s c -i ghcr.io/tektona-ai/desktop-x11:<tag> --ssh` |
 | Create + VNC in browser | `tektona s c -i <image> --vnc --browser` |
-| List active | `tektona sandbox ls` |
+| List active (yours only — see Ownership) | `tektona sandbox ls` |
 | List all (incl. terminated) | `tektona sandbox ls -A` |
 | List with full digests + resources | `tektona sandbox ls -w` |
 | Filter by state | `tektona sandbox ls --state running` |
+| Include others' shared sandboxes | `tektona sandbox ls --scope shared\|all` |
+| Search every project in the org | `tektona sandbox ls --all-projects` |
+| Share with the project | `tektona sandbox share <id> [--type use\|manage]` |
+| Make private again | `tektona sandbox unshare <id>` |
+| Hand to another member | `tektona sandbox transfer <id> <email-or-user-id>` (alias `chown`) |
+| Admin: any sandbox incl. private | `tektona admin sandbox ls\|get\|pause\|rm` `[--all-projects] [--owner <email>] [--orphaned] [--older-than 24h]` |
 | Show details | `tektona sandbox get <id>` (aliases: `info`, `show`, `details`) |
 | List listening ports | `tektona sandbox ports <id> [--json]` |
 | Wait for state | `tektona sandbox wait <id> [--state running] [--timeout 5m]` |
@@ -247,15 +263,28 @@ ls <repo>` / `docker buildx imagetools inspect <repo>`) and pin to
 that. If you only have a digest from a registry inspection, the bare
 `image@sha256:...` form is the cleanest pin and is fully accepted.
 
-For desktop, VNC, and `tektonactl desktop` workflows, **recommend the
-official desktop image** unless the user specifies their own:
+**Start from an official image** unless the user names their own. Both are
+Ubuntu 24.04 and **boot with systemd** (image `0.4.3`+), so `systemctl` works and
+a daemon installed with `apt` keeps running:
 
 ```sh
-ghcr.io/tektona-ai/desktop-x11:<tag>
+ghcr.io/tektona-ai/sandbox-base:<tag>   # headless: agent, CI, and server work
+ghcr.io/tektona-ai/desktop-x11:<tag>    # sandbox-base + X11 desktop, Chrome — for VNC and `tektonactl desktop`
 ```
 
+`sandbox-base` already ships Claude Code, Codex and opencode on the `PATH`, Node
+22 LTS, code-server, git, Python 3, and a build toolchain, plus a `tektona` user
+with passwordless sudo. Reaching for a bare library image such as `node:24`
+costs you all of that **and systemd**, so a long-running service then needs a
+process supervisor — use `sandbox process run --autostart` instead.
+
 Resolve `<tag>` against the registry before you suggest a command:
-<https://github.com/tektona-ai/desktop-x11/pkgs/container/desktop-x11>
+<https://github.com/tektona-ai/sandbox-images/pkgs/container/sandbox-base>
+
+A **private** image needs a registry credential, which is stored per project in
+the console (Project settings → Registries) or through the API. There is no
+`tektona registry` command — do not hunt for one. A sandbox that errors right
+after create usually has a registry endpoint/namespace mismatch.
 
 ## Common workflows
 
@@ -454,6 +483,42 @@ tektona project lifecycle-defaults <project> --auto-delete inherit     # clear o
 `tektona ssh`, a preview URL, or an agent request — the access resumes it and then
 serves the request. Expect a few seconds' extra latency on first contact with a
 paused sandbox (a warm hibernate resume is typically sub-second).
+
+## Ownership and visibility
+
+A sandbox belongs to one user and is **private by default**. `tektona sandbox ls`
+defaults to `--scope mine`, so **it lists only your own sandboxes** — a
+teammate's sandbox is absent from that output even when it is running and you
+have every right to use it. Read an unexpectedly empty list as a scope question
+before you conclude the sandbox is gone:
+
+```sh
+tektona sandbox ls --scope shared      # sandboxes others shared with you
+tektona sandbox ls --scope all         # everything you can access
+tektona sandbox ls --all-projects      # every project in the org (still --scope mine unless you widen it)
+```
+
+`--scope` chooses **whose**, `--all-projects` chooses **which projects**. They
+are independent, so `--all-projects` alone still shows only yours.
+
+The owner (or a project/org admin) shares it. `--type use` lets project members
+operate it; `--type manage` also lets them delete it. A `manage` holder still
+cannot reshare or transfer. Sharing exposes the sandbox **screen**, so anyone who
+can observe it can screenshot the desktop — keep a sandbox private while secrets
+are on screen.
+
+`tektona sandbox transfer` moves ownership to a project **writer or higher**, and
+it **revokes outstanding SSH, VNC, and preview tokens**. Open sessions stop, and
+the new owner re-establishes them.
+
+To reach another member's *private* sandbox you need the admin surface, which
+requires project-admin (or org-owner for `--all-projects`) and returns 403
+otherwise:
+
+```sh
+tektona admin sandbox ls --orphaned --older-than 24h
+tektona admin sandbox rm <id> --yes
+```
 
 ## Inside the sandbox: `tektonactl`
 
