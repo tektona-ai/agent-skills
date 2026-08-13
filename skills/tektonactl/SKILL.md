@@ -37,7 +37,7 @@ tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:0.4.3 --vnc --browser
 ```
 
 Look up the newest tag at
-<https://github.com/tektona-ai/desktop-x11/pkgs/container/desktop-x11>
+<https://github.com/tektona-ai/sandbox-images/pkgs/container/desktop-x11>
 before you suggest a command — the registry rolls forward independently
 of this skill. The image ref must be deterministic — a real tag, a
 `@sha256:...` digest, or both. Bare `:latest` (no digest) is rejected
