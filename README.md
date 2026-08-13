@@ -1,8 +1,8 @@
 # Tektona agent skills
 
-Two skills that teach Claude Code (and other [Agent
-Skills](https://agentskills.io)–compatible agents) how to drive the
-[Tektona](https://tektona.ai) CLI:
+Three skills that teach Claude Code (and other [Agent
+Skills](https://agentskills.io)–compatible agents) how to drive
+[Tektona](https://tektona.ai):
 
 - **`tektona-cli`** — install, auth, sandbox lifecycle, SSH/VNC/preview,
   env vars, secrets, egress network policy, and egress proxy profiles
@@ -10,15 +10,24 @@ Skills](https://agentskills.io)–compatible agents) how to drive the
 - **`tektonactl`** — the in-sandbox control tool: computer use (mouse,
   keyboard, screenshots, clipboard), named PTY sessions, and printing the
   egress CA (`tektonactl ca cert`).
+- **`tektona-sdk`** — the `@tektona/sdk` TypeScript client: the same
+  surface from code, plus process streaming, pagination, typed errors,
+  and the generated escape hatch.
 
-## Install the CLI itself
+## Install the CLI or the SDK
 
-The skills assume one of these is on `PATH`:
+The CLI skills assume one of these is on `PATH`:
 
 ```sh
 npm install -g @tektona/cli
 # or
 brew install tektona-ai/tap/tektona
+```
+
+The SDK skill assumes the package is a dependency of your project:
+
+```sh
+pnpm add @tektona/sdk
 ```
 
 ## Install the skills
@@ -29,12 +38,13 @@ CLI](https://github.com/vercel-labs/skills):
 ### Canonical (short URL via mirror repo)
 
 ```sh
-# Both skills
+# All three skills
 npx skills add tektona-ai/agent-skills
 
 # Just one of them
 npx skills add tektona-ai/agent-skills --skill tektona-cli
 npx skills add tektona-ai/agent-skills --skill tektonactl
+npx skills add tektona-ai/agent-skills --skill tektona-sdk
 ```
 
 The mirror tracks `main` only — `npx skills update` will pull in new
@@ -54,10 +64,11 @@ files, and symlinks them into your active agent's skill directory
 ```
 skills/
 ├── tektona-cli/SKILL.md   # outside-the-sandbox CLI surface
-└── tektonactl/SKILL.md    # in-sandbox tool surface
+├── tektonactl/SKILL.md    # in-sandbox tool surface
+└── tektona-sdk/SKILL.md   # @tektona/sdk TypeScript client
 ```
 
 Each `SKILL.md` declares its trigger conditions in YAML frontmatter; the
-two skills cross-reference each other so an agent only loads what's
+skills cross-reference each other so an agent only loads what's
 relevant to the task at hand.
 

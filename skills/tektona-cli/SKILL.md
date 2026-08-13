@@ -12,9 +12,10 @@ remote sandboxes and provides SSH, VNC, and HTTP preview access. Inside
 a running sandbox, a second binary — `tektonactl` — drives
 the desktop and sandbox introspection.
 
-**RELATED SKILL:** Use `tektonactl` for anything *inside* a sandbox — computer
+**RELATED SKILLS:** Use `tektonactl` for anything *inside* a sandbox — computer
 use (screenshot, click, type, clipboard). Reach it from
-outside with `tektona ssh <id> -- tektonactl ...`.
+outside with `tektona ssh <id> -- tektonactl ...`. Use `tektona-sdk` when the
+same work belongs in TypeScript code rather than a shell.
 
 ## Secrets where possible, everything else in ENV
 
@@ -560,5 +561,6 @@ clipboard, windows) — load the `tektonactl` skill.
 
 - Building or modifying the Tektona platform itself (control plane, runner,
   proto definitions). That's repository code, not CLI usage.
-- Programmatic access from production services — use the platform HTTP API
-  directly instead of shelling out to `tektona`.
+- Programmatic access from production services — use `@tektona/sdk` (see the
+  `tektona-sdk` skill) or the platform HTTP API, instead of shelling out to
+  `tektona`.

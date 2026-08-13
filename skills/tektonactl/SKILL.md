@@ -14,10 +14,10 @@ shell created through `tektona ssh`. From outside the sandbox, wrap calls:
 tektona ssh <sandbox-id> -- tektonactl <command> [args]
 ```
 
-**RELATED SKILL:** Use `tektona-cli` for getting into the sandbox in the
+**RELATED SKILLS:** Use `tektona-cli` for getting into the sandbox in the
 first place — installing the CLI, authenticating, creating sandboxes,
 SSH/VNC, preview URLs, env vars, secrets, and egress network policy /
-egress proxy profiles.
+egress proxy profiles. Use `tektona-sdk` to do the same from TypeScript.
 
 ## When to use
 
