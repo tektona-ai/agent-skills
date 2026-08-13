@@ -434,6 +434,11 @@ tektona sandbox lifecycle <id> --auto-pause 30m --auto-delete 30d
   or `suspend` (disk only, cheaper to store, cold-boots on resume).
 - `--auto-resume false` keeps a paused sandbox paused until you resume it
   explicitly; with the default (`true`) any access resumes it.
+- `--auto-delete` applies **only to a paused sandbox**, and the clock starts at
+  the pause. A running sandbox is never auto-deleted, however old it is. Resume
+  clears the clock, so the next pause starts the full interval again. Read
+  `--auto-delete 7d` as "delete 7 days after it pauses", not "7 days after
+  creation".
 
 **Viewing:** `tektona sandbox lifecycle <id>` with no flags now **errors** — it's
 setter-only. Read effective values with `tektona sandbox get <id>`, whose
@@ -541,6 +546,26 @@ tektona sandbox egress-proxy unset <sandbox_id>               # detach — injec
 **already-running sandboxes within a few seconds** (the proxy re-resolves rules
 and secrets on a short cache TTL) — no recreate or pause/resume needed to pick up
 a changed policy, swapped profile, or rotated secret.
+
+**TLS trust.** A rule rewrites a header inside an HTTPS request, so the proxy
+terminates TLS for that host. The sandbox trusts the proxy CA at boot: the CA
+lands at `/etc/tektona/ca.pem`, goes into the distro trust store, and is exported
+as `SSL_CERT_FILE`, `NODE_EXTRA_CA_CERTS`, `REQUESTS_CA_BUNDLE`, `GIT_SSL_CAINFO`
+and `CURL_CA_BUNDLE`. curl, git, Python `requests`, Go and Node (including
+`fetch`) work with no image change.
+
+A runtime with its own trust store ignores those variables and fails the
+handshake. The JVM, a certifi bundle used without `SSL_CERT_FILE`, and any
+certificate-pinning client are the common cases. Import the CA explicitly:
+
+```sh
+tektona ssh <id> -- tektonactl ca cert            # print the live CA, then import it
+```
+
+An inject rule also **overwrites** a header the sandbox already set. Put a
+placeholder in the sandbox config and keep the real value in the secret. To prove
+injection works, call an endpoint that **requires** auth — an unauthenticated
+endpoint answers 200 either way and proves nothing.
 
 ## Inside the sandbox: `tektonactl`
 
