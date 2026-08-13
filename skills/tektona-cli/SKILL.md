@@ -1,6 +1,6 @@
 ---
 name: tektona-cli
-description: Use when the user mentions Tektona, asks to create or manage a remote sandbox / dev environment, create or manage organizations and projects (list, show, create, update), needs to SSH or VNC into a sandbox, mint a preview URL for a forwarded port, control a sandbox's lifecycle (auto-pause when idle, wake on access, auto-delete) per sandbox or as project defaults, configure egress network policy or an egress proxy profile, store a secret / manage a git credential / inject a credential (e.g. an API key or git token) at the egress boundary for sandbox outbound requests, set sandbox env vars, run or manage a process inside a sandbox (background servers, one-off commands, interactive shells, logs, autostart), or runs `tektona` or `tektonactl` commands.
+description: Use when the user mentions Tektona, or runs `tektona` / `tektonactl`. Covers remote sandboxes (create, SSH, VNC, preview URLs, file copy, fork), processes inside a sandbox (background servers, logs, autostart), sandbox lifecycle (auto-pause, auto-delete), orgs and projects, and credentials injected at the egress boundary (secrets, git credentials, egress network policy and proxy profiles).
 ---
 
 # Tektona CLI
@@ -24,37 +24,36 @@ reaching for `--env`.**
 > **Anything sensitive → a `tektona secret` + an egress-proxy rule.
 > Everything else → `--env KEY=VAL`.**
 
-- **Sensitive values** (API keys, tokens, passwords) belong in a
-  `tektona secret`, injected as an HTTP header on the sandbox's *outbound*
-  requests by an **egress proxy profile** rule. The value is attached at the
-  egress boundary and **never enters the sandbox** — agent code can't read or
-  leak it. Same model as git credentials (see the private-clone workflow).
-- **Non-secrets** (model names, base URLs, feature flags, `NODE_ENV`, …) — and
-  any value a tool needs raw in-process for non-HTTP use — go in **environment
-  variables** via `--env KEY=VAL`, which **are visible inside the sandbox**. Only
-  put a secret in `--env` when egress injection genuinely can't carry it.
+An `--env` value is **visible inside the sandbox**, so agent code can read and
+leak it. A secret is injected as an HTTP header at the egress boundary and
+**never enters the sandbox**. Reserve `--env` for non-secret config — model
+names, base URLs, feature flags, `NODE_ENV` — and for a value a tool needs raw
+in-process for non-HTTP use.
 
 **Canonical example — an Anthropic API key for a coding agent.** The key is a
-header to a known host, so it goes via secret + egress-proxy rule and the agent
-never sees it; the model name and `NODE_ENV` aren't secret, so they go in `--env`:
+header to a known host, so it goes in a secret; the model name is not sensitive,
+so it goes in `--env`:
 
 ```sh
 # SECRET — never enters the sandbox; injected at the egress boundary
 tektona secret set anthropic <<<"$ANTHROPIC_API_KEY"     # value read from stdin
-tektona egress-proxy apply team-defaults --scope project --default   # create the profile first
+tektona egress-proxy apply team-defaults --scope project --default
 tektona egress-proxy rule add team-defaults \
   --host api.anthropic.com --header 'x-api-key=${secret:anthropic}'
 
 # ENV — non-secret config, visible in-box (the right place for these)
-tektona sandbox create -i node:22 \
-  --env ANTHROPIC_MODEL=claude-sonnet-4-5 \
-  --env NODE_ENV=production
+tektona sandbox create -i node:22 --env ANTHROPIC_MODEL=claude-sonnet-4-5
 #   NOT: --env ANTHROPIC_API_KEY=...   ← that would expose the key in the box
 ```
 
-The rule references the secret as `${secret:KEY}`, resolved just-in-time at the
-proxy, so rotating the secret needs no rule change. See **Secrets and egress
-injection** below for the full command surface.
+Two controls shape outbound traffic, and they are independent. The **gate**
+(`egress-network-policy`) decides which hosts a sandbox may reach at all. The
+**treatment** (`egress-proxy` profile) injects a header into requests to a host
+the gate already allows. A treatment never widens the gate.
+
+**For anything beyond that — scopes, the `${secret:KEY}` grammar, attaching or
+rotating a treatment, TLS trust, or a rule that is not firing — read
+[`references/egress-and-secrets.md`](references/egress-and-secrets.md).**
 
 ## Install
 
@@ -150,7 +149,7 @@ update.
 | Update project | `tektona project update <project> --org <slug> [--display-name <l>] [--description <d>]` |
 | Switch context | `tektona ctx set <org/project>` (copy a CONTEXT value from `project ls`) |
 | Create sandbox | `tektona sandbox create -i <image> [--cpu N --memory N --disk N --env K=V --egress-network-policy <policy> --egress-proxy <profile>]` |
-| Create + SSH in | `tektona s c -i ghcr.io/tektona-ai/desktop-x11:0.4.1 --ssh` |
+| Create + SSH in | `tektona s c -i ghcr.io/tektona-ai/desktop-x11:<tag> --ssh` |
 | Create + VNC in browser | `tektona s c -i <image> --vnc --browser` |
 | List active | `tektona sandbox ls` |
 | List all (incl. terminated) | `tektona sandbox ls -A` |
@@ -255,11 +254,8 @@ official desktop image** unless the user specifies their own:
 ghcr.io/tektona-ai/desktop-x11:<tag>
 ```
 
-Look up the latest version at
+Resolve `<tag>` against the registry before you suggest a command:
 <https://github.com/tektona-ai/desktop-x11/pkgs/container/desktop-x11>
-before suggesting a command. As of the most recent skill release the
-newest tag is `0.4.1`, but verify — the registry may have rolled
-forward.
 
 ## Common workflows
 
@@ -274,14 +270,14 @@ returned project. The same flag-only form works for `tektona org create`.
 
 **Spin up a fresh dev box and drop into it:**
 ```sh
-tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:0.4.1 --cpu 4 --memory 4 --ssh
+tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:<tag> --cpu 4 --memory 4 --ssh
 ```
 Use `--egress-network-policy tektona/open` (alias `--egress-policy`) if you need
 unrestricted egress (default policy restricts egress).
 
 **Spin up a desktop sandbox and open VNC:**
 ```sh
-tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:0.4.1 --vnc --browser
+tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:<tag> --vnc --browser
 ```
 
 **Wait for a sandbox to be ready:**
@@ -290,7 +286,7 @@ tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:0.4.1 --vnc --browser
 `--ssh` / `--vnc` to `create` (which block until the connection is up),
 or use `tektona sandbox wait`:
 ```sh
-ID=$(tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:0.4.1 -o json | jq -r .id)
+ID=$(tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:<tag> -o json | jq -r .id)
 tektona sandbox wait "$ID"                                # default: state=running, timeout=5m
 tektona sandbox wait "$ID" --state running --timeout 3m
 tektona sandbox wait "$ID" --state paused                 # matches hibernated or suspended
@@ -459,114 +455,6 @@ tektona project lifecycle-defaults <project> --auto-delete inherit     # clear o
 serves the request. Expect a few seconds' extra latency on first contact with a
 paused sandbox (a warm hibernate resume is typically sub-second).
 
-## Secrets and egress injection
-
-See **Secrets where possible, everything else in ENV** above for *when* to use
-this. This section is the *how*. Two independent controls shape outbound traffic:
-
-- **Egress network policy** — the **gate**: which hosts a sandbox may reach at
-  all (`egress-network-policy`, alias `np`).
-- **Egress proxy profile** — the **treatment**: a bundle of **rules**, each
-  matching a host and injecting a header built from a secret (`egress-proxy`,
-  aliases `egress` / `egress-proxy-profile`).
-
-A proxy rule **never opens the firewall** — if the policy doesn't already allow
-the host, the rule is inert. Pair them: a policy that reaches
-`api.anthropic.com`, and a profile that injects your key there.
-
-**Reference grammar (both `--egress-network-policy` and `--egress-proxy-profile`).**
-The value's prefix is a **scope keyword**, not an org/project name:
-
-- `tektona/<name>` — system (Tektona-provided). Network policies have these
-  (`tektona/dev`, `tektona/open`); proxy profiles have none, so `tektona/<name>`
-  is reported as "no system proxy profile".
-- `org/<name>` — the sandbox's org.
-- `project/<name>` — the sandbox's project.
-- `<name>` (bare) — **strict alias for `project/<name>`**. A bare name is always
-  the project scope; use `org/<name>` for an org resource (there is no hidden
-  org fallback).
-
-**Secrets** — stored material referenced by key, never echoed back:
-
-```sh
-tektona secret set anthropic <<<"$KEY"   # upsert from STDIN (creates, or updates in place); default --scope project
-tektona secret set my-tok --scope personal <<<"$TOK"   # only your sandboxes
-tektona secret set org-key --scope org   <<<"$KEY"     # shared across the org
-tektona secret ls                        # KEY / SCOPE / TYPE — values are NEVER shown
-tektona secret ls --scope personal       # filter: all|project|personal|org
-tektona secret rm anthropic              # default --scope project
-```
-
-`set` is an upsert: a new key is created, an existing one has its value rotated
-in place (live on running sandboxes within seconds — no recreate).
-
-Scopes: `personal` (only sandboxes you own) → `project` (everyone on the project)
-→ `org` (every project in the org). A `${secret:KEY}` reference resolves
-most-specific-first (personal → project → org), so a personal value shadows a
-shared one with no rule change.
-
-**Egress proxy profiles + inject rules:**
-
-```sh
-tektona egress-proxy apply team-defaults --scope project --default  # create (project default)
-tektona egress-proxy rule add team-defaults \
-  --host api.anthropic.com --header 'x-api-key=${secret:anthropic}'  # inject a header
-tektona egress-proxy rule add team-defaults \
-  --host api.example.com   --header 'Authorization=Bearer ${secret:my-tok}'
-tektona egress-proxy ls                  # NAME / SCOPE / DEFAULT / RULES
-tektona egress-proxy show team-defaults  # the profile and its rules (with rule ids)
-tektona egress-proxy rule rm team-defaults <rule-id>  # remove one rule (id from show)
-tektona egress-proxy rm team-defaults
-```
-
-`rule add` requires `--host <domain>` and at least one repeatable
-`--header 'NAME=TEMPLATE'`; a template references a secret as `${secret:KEY}`.
-The value is resolved just-in-time at the proxy and **never enters the sandbox**.
-Optional `--path <prefix>` scopes a rule to a path prefix.
-
-Attach a profile at create time (the project default applies automatically
-otherwise):
-
-```sh
-tektona sandbox create -i node:22 --egress-proxy team-defaults
-#   --egress-proxy-profile is the long-form alias of --egress-proxy
-```
-
-Attach, switch, or detach on an **existing** sandbox — no recreate needed. The
-change is confirmed active on the sandbox's node before the command returns.
-The sandbox must be running (resume a paused one first):
-
-```sh
-tektona sandbox egress-proxy set <sandbox_id> team-defaults   # attach, or switch profiles
-tektona sandbox egress-proxy unset <sandbox_id>               # detach — injection stops; the egress network policy stays
-#   `sandbox egress-proxy-profile` is the long-form alias
-```
-
-**Runtime mutability.** Editing a network policy or proxy profile takes effect on
-**already-running sandboxes within a few seconds** (the proxy re-resolves rules
-and secrets on a short cache TTL) — no recreate or pause/resume needed to pick up
-a changed policy, swapped profile, or rotated secret.
-
-**TLS trust.** A rule rewrites a header inside an HTTPS request, so the proxy
-terminates TLS for that host. The sandbox trusts the proxy CA at boot: the CA
-lands at `/etc/tektona/ca.pem`, goes into the distro trust store, and is exported
-as `SSL_CERT_FILE`, `NODE_EXTRA_CA_CERTS`, `REQUESTS_CA_BUNDLE`, `GIT_SSL_CAINFO`
-and `CURL_CA_BUNDLE`. curl, git, Python `requests`, Go and Node (including
-`fetch`) work with no image change.
-
-A runtime with its own trust store ignores those variables and fails the
-handshake. The JVM, a certifi bundle used without `SSL_CERT_FILE`, and any
-certificate-pinning client are the common cases. Import the CA explicitly:
-
-```sh
-tektona ssh <id> -- tektonactl ca cert            # print the live CA, then import it
-```
-
-An inject rule also **overwrites** a header the sandbox already set. Put a
-placeholder in the sandbox config and keep the real value in the secret. To prove
-injection works, call an endpoint that **requires** auth — an unauthenticated
-endpoint answers 200 either way and proves nothing.
-
 ## Inside the sandbox: `tektonactl`
 
 Once SSHed in, `tektonactl` is on `PATH` and drives the desktop and
@@ -580,65 +468,28 @@ tektona ssh <id> -- tektonactl desktop screenshot -o /tmp/s.png
 For the full command surface — `desktop` (screenshot, click, type,
 clipboard, windows) — load the `tektonactl` skill.
 
-## Common mistakes
+## Rules that bite
 
-- **Forgetting to set context.** `tektona ctx set <org/project>` once, or
-  pass `--org`/`--project` per call. If you don't know the project slug,
-  run `tektona project ls` and copy a `CONTEXT` value. Most "not found"
-  errors are a wrong context, not a missing resource.
-- **Relying on the org/project wizard as an agent.** `org create`, `project
-  create`, and `update` prompt interactively only on a TTY. An agent must pass
-  every input as a flag (`--display-name`/`--name`/`--org`) — a missing required
-  flag fails fast with no HTTP call rather than hanging on a prompt.
-- **Adding a git credential before registering the repo.** `git-credential create
-  --repo` only *references* repos already registered in the project — it never
-  creates them. The fix is a real command, not the API or console: run `tektona
-  repository create --url <clone-url>` first (see the private-clone workflow), then
-  retry. Don't go spelunking the OpenAPI spec for a registration endpoint.
-- **Egress blocked unexpectedly.** Default egress network policy is restrictive.
-  Either pass `--egress-network-policy tektona/open` at create (the old
-  `--network` flag is gone; `--egress-policy` is the alias), or use
-  `tektona egress-network-policy ls` to find a policy that allows what you need.
-- **Putting a secret in `--env`.** An env var is visible inside the sandbox, so
-  untrusted agent code can read it. Sensitive values consumed as an HTTP header
-  belong in a `tektona secret` + egress-proxy rule (injected at the edge, never
-  in the box). Reserve `--env` for non-secret config. See **Secrets where
-  possible, everything else in ENV** above.
-- **Using bare `:latest` as the image ref.** Floating tags are
-  rejected — pin with a digest (`image:latest@sha256:<digest>`) or use
-  a real version tag. Tag-less digests (`image@sha256:<digest>`) are
-  fine; that's the most deterministic pin you can give.
-- **Letting a silent long job get hibernated.** The idle timer only sees
-  boundary-crossing traffic, so a network-silent build or training run looks idle
-  and auto-pauses after 15m. Set `--auto-pause never` (at create or via
-  `tektona sandbox lifecycle <id>`) before starting one. You do NOT need to resume
-  a paused sandbox manually — any access wakes it.
-- **Running `tektona sandbox lifecycle <id>` with no flags to view config.** It's
-  now setter-only and errors with no flags; read effective lifecycle values from
-  `tektona sandbox get <id>`. `--no-auto-resume` is a deprecated hidden alias — use
-  `--auto-resume false`.
-- **Inventing flags that don't exist on `wait`.** Real flags are
-  `--state` (default `running`), `--timeout` (default `5m`), and
-  `--interval` (default `2s`). Anything else will be rejected.
-- **Treating `--public` and `preview` as interchangeable.** `--public` at
-  create time gives durable canonical URLs. `sandbox preview` without
-  `--public` mints a bearer-token URL (default 12h, max 24h). Pick one.
-- **Editing files inside the sandbox via `tektona ssh -- vim`.** Works, but
-  for AI-driven edits prefer `tektona ssh -- cat/sed/tee` or `tektona
-  sandbox cp` to push the file in.
-- **Reaching for `scp`/`rsync` to move files.** Use `tektona sandbox cp`
-  instead — it goes through the same brokered access as `tektona ssh`,
-  supports the bare `<id>:` WORKDIR shorthand, and parallelises by
-  default. Legacy `scp -O` (pre-OpenSSH-9.0) is not supported by the
-  access gateway; modern `scp` works over SFTP but the CLI command is
-  the blessed path.
-- **Using a sandbox-id prefix.** Refs must include the full 26-character
-  ULID — `01JQ:/path` is rejected. Copy/paste the full id from
-  `tektona sandbox ls`.
-- **Using `tektona sandbox vnc` and `tektona vnc`.** Both exist (the first
-  is an alias under `sandbox`); pick one for muscle memory.
-- **Calling `tektonactl` from your laptop.** It only exists inside the
-  sandbox. Wrap it: `tektona ssh <id> -- tektonactl ...`.
+- **Set the context first.** Run `tektona ctx set <org/project>` once, or pass
+  `--org`/`--project` per call. Most "not found" errors are a wrong context, not
+  a missing resource — so read a "not found" as a context question first.
+- **Open the gate before you expect egress.** The default gate is restrictive.
+  Pass `--egress-network-policy tektona/open` at create (`--egress-policy` is the
+  alias), or run `tektona egress-network-policy ls` to find one that allows what
+  you need.
+- **Address a sandbox by its full 26-character ULID.** A prefix such as
+  `01JQ:/path` is rejected. Copy the whole id from `tektona sandbox ls`.
+- **Pick one preview model and stay in it.** `--public` at create time gives
+  durable canonical URLs. `sandbox preview` without `--public` mints a
+  bearer-token URL (default 12h, max 24h).
+- **Move files with `tektona sandbox cp`.** It goes through the same brokered
+  access as `tektona ssh`, supports the bare `<id>:` WORKDIR shorthand, and
+  parallelises by default. Legacy `scp -O` (pre-OpenSSH-9.0) is unsupported by
+  the access gateway.
+- **Edit files by pushing them in.** `tektona sandbox cp`, or
+  `tektona ssh -- cat/sed/tee`, beats driving an interactive editor over SSH.
+- **Set `--auto-resume false` where you mean it.** `--no-auto-resume` is a
+  deprecated hidden alias.
 
 ## When NOT to use this skill
 
