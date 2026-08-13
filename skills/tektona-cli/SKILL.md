@@ -386,6 +386,10 @@ Fix a registered repo with `tektona repository update` — never `rm` + `create`
 which strips the repo from every credential that covers it. The default repo set
 is append-only: `--default` adds a repo to it, and only `rm` takes one out.
 
+Only the name is unique in a project, so two repos can hold the same URL. If a
+command errors `N repositories match …`, pass the repo's id (from
+`tektona repository ls -o json`) instead of the URL.
+
 A credential has an immutable `--name` (the handle it's addressed by) plus a
 `--display-name` label; the token is read from stdin. Rotate it live with
 `tektona git-credential update <name> --scope ...` (token from stdin if piped,
