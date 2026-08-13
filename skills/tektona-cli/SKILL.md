@@ -225,10 +225,11 @@ are admin on every project automatically.
 | Attach/switch a proxy profile on an existing sandbox | `tektona sandbox egress-proxy set <id> <profile>` |
 | Detach a sandbox's proxy profile | `tektona sandbox egress-proxy unset <id>` |
 | Delete a proxy profile | `tektona egress-proxy rm <name>` |
-| List repositories | `tektona repository ls` (alias `repo`) `[-o json]` |
+| List repositories | `tektona repository ls` (alias `repo`) `[--default] [-o json]` |
 | Register a repository | `tektona repository create --url <clone-url> [--name <n>] [--default-branch <b>] [--default]` |
-| Show a repository | `tektona repository get <name-or-url>` |
-| Remove a repository | `tektona repository rm <name-or-url>` |
+| Show a repository | `tektona repository get <name-url-or-id>` |
+| Change a repository (unset flags keep their value) | `tektona repository update <name-url-or-id> [--name <n>] [--url <u>] [--default-branch <b>] [--default]` |
+| Remove a repository | `tektona repository rm <name-url-or-id>` |
 | List git credentials | `tektona git-credential ls` (alias `gitcred`) `[--scope all\|project\|personal]` |
 | Create a git credential (token via stdin) | `tektona git-credential create --name <slug> --display-name <label> --forge github\|gitlab --scope project\|personal --repo <url-or-name>` |
 | Update a git credential (token via stdin if piped, else kept) | `tektona git-credential update <name> --scope ... [--display-name <l>] [--forge ...] [--repo <url-or-name>]` |
@@ -380,6 +381,10 @@ gh auth token | tektona git-credential create --name acme-bot \
 project — it can't create one. If it errors `no repository matches …`, you skipped
 step 1: run `tektona repository create --url <clone-url>` first, then retry.
 List what's registered with `tektona repository ls`.
+
+Fix a registered repo with `tektona repository update` — never `rm` + `create`,
+which strips the repo from every credential that covers it. The default repo set
+is append-only: `--default` adds a repo to it, and only `rm` takes one out.
 
 A credential has an immutable `--name` (the handle it's addressed by) plus a
 `--display-name` label; the token is read from stdin. Rotate it live with
