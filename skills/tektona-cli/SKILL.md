@@ -202,7 +202,7 @@ are admin on every project automatically.
 | Signal process | `tektona sandbox process signal <id> <ref> SIGHUP` |
 | Autostart on every boot | `tektona sandbox process run <id> -d --name <name> --autostart -- <cmd...>` / `process autostart <id> <ref> on\|off` |
 | VNC | `tektona vnc <id> [--browser] [--start-desktop]` |
-| Start desktop | `tektona sandbox desktop start <id>` |
+| Start desktop (needs a desktop image — see below) | `tektona sandbox desktop start <id>` |
 | Stop desktop | `tektona sandbox desktop stop <id>` |
 | Screenshot to file | `tektona sandbox screenshot <id> -o out.png` (add `--open` to also open it in a viewer) |
 | Preview URL for port | `tektona sandbox preview <id> <port> [--ttl 1h] [--open]` |
@@ -273,6 +273,16 @@ a daemon installed with `apt` keeps running:
 ghcr.io/tektona-ai/sandbox-base:<tag>   # headless: agent, CI, and server work
 ghcr.io/tektona-ai/desktop-x11:<tag>    # sandbox-base + X11 desktop, Chrome — for VNC and `tektonactl desktop`
 ```
+
+**`tektona sandbox desktop start` and every `tektonactl desktop` command need an
+image that ships a desktop.** That is `desktop-x11`, an image built from it, or
+your own image with an executable `/usr/local/bin/tektona-desktop-session` that
+starts a window manager on `DISPLAY=:0`. `desktop start` errors on any other
+image, `sandbox-base` included.
+
+`tektona vnc` and `tektona sandbox screenshot` need no desktop image. They read
+the sandbox screen, which shows the text console when no desktop runs — so a
+black or console-only VNC view usually means the image ships no desktop.
 
 `sandbox-base` already ships Claude Code, Codex and opencode on the `PATH`, Node
 22 LTS, code-server, git, Python 3, and a build toolchain, plus a `tektona` user
