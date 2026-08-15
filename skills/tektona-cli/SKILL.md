@@ -277,7 +277,7 @@ ghcr.io/tektona-ai/desktop-x11:<tag>    # sandbox-base + X11 desktop, Chrome —
 
 **`tektona sandbox desktop start` and every `tektonactl desktop` command need an
 image that ships a desktop.** That is `desktop-x11`, an image built from it, or
-your own image with an executable `/usr/local/bin/tektona-desktop-session` that
+your own image with an executable `/etc/tektona/desktop-session` that
 starts a window manager on `DISPLAY=:0`. `desktop start` errors on any other
 image, `sandbox-base` included.
 

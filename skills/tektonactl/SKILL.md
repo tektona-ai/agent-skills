@@ -31,7 +31,7 @@ egress proxy profiles. Use `tektona-sdk` to do the same from TypeScript.
 `tektonactl` and its `desktop` subcommands rely on an X session, the
 `tektonactl` binary itself, and a few system libraries. The image must ship a
 desktop: `desktop-x11`, an image built from it, or your own image with an
-executable `/usr/local/bin/tektona-desktop-session` that starts a window
+executable `/etc/tektona/desktop-session` that starts a window
 manager on `DISPLAY=:0`. On any other image — `sandbox-base` included —
 `desktop start` errors, and the other `desktop` subcommands have no session to
 drive. `tektonactl process`, `pty` and `ca cert` work on every image.
