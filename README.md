@@ -10,9 +10,9 @@ Skills](https://agentskills.io)–compatible agents) how to drive
 - **`tektonactl`** — the in-sandbox control tool: computer use (mouse,
   keyboard, screenshots, clipboard), named PTY sessions, and printing the
   egress CA (`tektonactl ca cert`).
-- **`tektona-sdk`** — the `@tektona/sdk` TypeScript client: the same
-  surface from code, plus process streaming, pagination, typed errors,
-  and the generated escape hatch.
+- **`tektona-typescript-sdk`** — the `@tektona/sdk` TypeScript client: the
+  same surface from code, plus process streaming, pagination, typed
+  errors, and the generated escape hatch.
 
 ## Install the CLI or the SDK
 
@@ -44,7 +44,7 @@ npx skills add tektona-ai/agent-skills
 # Just one of them
 npx skills add tektona-ai/agent-skills --skill tektona-cli
 npx skills add tektona-ai/agent-skills --skill tektonactl
-npx skills add tektona-ai/agent-skills --skill tektona-sdk
+npx skills add tektona-ai/agent-skills --skill tektona-typescript-sdk
 ```
 
 The mirror tracks `main` only — `npx skills update` will pull in new
@@ -63,9 +63,9 @@ files, and symlinks them into your active agent's skill directory
 
 ```
 skills/
-├── tektona-cli/SKILL.md   # outside-the-sandbox CLI surface
-├── tektonactl/SKILL.md    # in-sandbox tool surface
-└── tektona-sdk/SKILL.md   # @tektona/sdk TypeScript client
+├── tektona-cli/SKILL.md              # outside-the-sandbox CLI surface
+├── tektonactl/SKILL.md               # in-sandbox tool surface
+└── tektona-typescript-sdk/SKILL.md   # @tektona/sdk TypeScript client
 ```
 
 Each `SKILL.md` declares its trigger conditions in YAML frontmatter; the

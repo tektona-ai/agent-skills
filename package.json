@@ -22,7 +22,7 @@
     "skills": [
       "./skills/tektona-cli",
       "./skills/tektonactl",
-      "./skills/tektona-sdk"
+      "./skills/tektona-typescript-sdk"
     ]
   }
 }

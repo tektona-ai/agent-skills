@@ -1,5 +1,5 @@
 ---
-name: tektona-sdk
+name: tektona-typescript-sdk
 description: Use when Tektona is driven from TypeScript or JavaScript code with the `@tektona/sdk` package, rather than from a shell. Covers the `Tektona` client and its scope, sandboxes created from code, processes and their streamed output, preview URLs, SSH and VNC access tokens, secrets, egress network policies, pagination, and typed errors. For the `tektona` command line, use the `tektona-cli` skill instead.
 ---
 

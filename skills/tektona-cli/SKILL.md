@@ -1,6 +1,6 @@
 ---
 name: tektona-cli
-description: Use when the user drives Tektona from a shell, or runs `tektona` / `tektonactl`. Covers remote sandboxes (create, SSH, VNC, preview URLs, file copy, fork), processes inside a sandbox (background servers, logs, autostart), sandbox lifecycle (auto-pause, auto-delete), sharing and ownership, orgs, projects and roles, and credentials injected at the egress boundary (secrets, git credentials, egress network policy and proxy profiles). For Tektona from TypeScript or JavaScript code, use the `tektona-sdk` skill instead.
+description: Use when the user drives Tektona from a shell, or runs `tektona` / `tektonactl`. Covers remote sandboxes (create, SSH, VNC, preview URLs, file copy, fork), processes inside a sandbox (background servers, logs, autostart), sandbox lifecycle (auto-pause, auto-delete), sharing and ownership, orgs, projects and roles, and credentials injected at the egress boundary (secrets, git credentials, egress network policy and proxy profiles). For Tektona from TypeScript or JavaScript code, use the `tektona-typescript-sdk` skill instead.
 ---
 
 # Tektona CLI
@@ -14,8 +14,9 @@ the desktop and sandbox introspection.
 
 **RELATED SKILLS:** Use `tektonactl` for anything *inside* a sandbox — computer
 use (screenshot, click, type, clipboard). Reach it from
-outside with `tektona ssh <id> -- tektonactl ...`. Use `tektona-sdk` when the
-same work belongs in TypeScript code rather than a shell.
+outside with `tektona ssh <id> -- tektonactl ...`. Use
+`tektona-typescript-sdk` when the same work belongs in TypeScript code
+rather than a shell.
 
 ## Secrets where possible, everything else in ENV
 
@@ -582,5 +583,5 @@ clipboard, windows) — load the `tektonactl` skill.
 - Building or modifying the Tektona platform itself (control plane, runner,
   proto definitions). That's repository code, not CLI usage.
 - Programmatic access from production services — use `@tektona/sdk` (see the
-  `tektona-sdk` skill) or the platform HTTP API, instead of shelling out to
-  `tektona`.
+  `tektona-typescript-sdk` skill) or the platform HTTP API, instead of
+  shelling out to `tektona`.

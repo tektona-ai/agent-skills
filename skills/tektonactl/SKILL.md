@@ -17,7 +17,8 @@ tektona ssh <sandbox-id> -- tektonactl <command> [args]
 **RELATED SKILLS:** Use `tektona-cli` for getting into the sandbox in the
 first place — installing the CLI, authenticating, creating sandboxes,
 SSH/VNC, preview URLs, env vars, secrets, and egress network policy /
-egress proxy profiles. Use `tektona-sdk` to do the same from TypeScript.
+egress proxy profiles. Use `tektona-typescript-sdk` to do the same from
+TypeScript.
 
 ## When to use
 
