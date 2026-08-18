@@ -175,7 +175,7 @@ are admin on every project automatically.
 | Admin: any sandbox incl. private | `tektona admin sandbox ls\|get\|pause\|rm` `[--all-projects] [--owner <email>] [--orphaned] [--older-than 24h]` |
 | Show details | `tektona sandbox get <id>` (aliases: `info`, `show`, `details`) |
 | List listening ports | `tektona sandbox ports <id> [--json]` |
-| Wait for state | `tektona sandbox wait <id> [--state running] [--timeout 5m]` |
+| Wait for state | `tektona sandbox wait <id> [--state running] [--timeout 10m]` |
 | Pause | `tektona sandbox pause <id> [--mode hibernate\|suspend]` |
 | Resume | `tektona sandbox resume <id>` |
 | Reboot (orderly restart) | `tektona sandbox reboot <id> [-y]` — processes get SIGTERM; recent writes survive |
