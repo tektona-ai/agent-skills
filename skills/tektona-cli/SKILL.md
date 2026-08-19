@@ -268,7 +268,7 @@ that. If you only have a digest from a registry inspection, the bare
 `image@sha256:...` form is the cleanest pin and is fully accepted.
 
 **Start from an official image** unless the user names their own. Both are
-Ubuntu 24.04 and **boot with systemd** (image `0.4.3`+), so `systemctl` works and
+Ubuntu 24.04 and **boot with systemd** (image `0.5.0`+), so `systemctl` works and
 a daemon installed with `apt` keeps running:
 
 ```sh

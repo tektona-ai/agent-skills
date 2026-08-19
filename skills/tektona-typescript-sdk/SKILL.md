@@ -218,7 +218,7 @@ The rule is mechanical:
 
 ```ts
 const sandbox = await tek.sandbox.create({
-  image: 'ghcr.io/tektona-ai/sandbox-base:0.4.3',
+  image: 'ghcr.io/tektona-ai/sandbox-base:0.5.0',
   egress_network_policy: 'tektona/open',  // body → snake_case
   resources: { cpu: 2, memory: 4, disk: 20 },  // cores, GiB, GiB
 })
@@ -254,7 +254,7 @@ image                            ✗  no tag and no digest
 ```
 
 **Start from an official image** unless the user names their own. Both are Ubuntu
-24.04 and **boot with systemd** (image `0.4.3`+):
+24.04 and **boot with systemd** (image `0.5.0`+):
 
 ```text
 ghcr.io/tektona-ai/sandbox-base:<tag>   # headless: agent, CI, and server work

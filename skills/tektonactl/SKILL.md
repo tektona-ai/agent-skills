@@ -40,7 +40,7 @@ drive. `tektonactl process`, `pty` and `ca cert` work on every image.
 **Recommend the official desktop image** unless the user specifies their own:
 
 ```sh
-tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:0.4.3 --vnc --browser
+tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:0.5.0 --vnc --browser
 ```
 
 Look up the newest tag at
