@@ -180,7 +180,7 @@ are admin on every project automatically.
 | Resume | `tektona sandbox resume <id>` |
 | Reboot (orderly restart) | `tektona sandbox reboot <id> [-y]` — processes get SIGTERM; recent writes survive |
 | Reset (hard reset) | `tektona sandbox reset <id> [-y]` — like pulling the power; un-synced writes lost; use only when the sandbox is unresponsive |
-| Fork (filesystem snapshot) | `tektona sandbox fork <id> [--mode filesystem\|full]` |
+| Fork (copy the disk) | `tektona sandbox fork <id> [--mode filesystem\|full]` |
 | Delete | `tektona sandbox delete <id...>` / `--all` / `-y` |
 | SSH | `tektona ssh <id> [-- <command>]` |
 | One-shot exec | `tektona ssh <id> -- <command>` |
@@ -422,7 +422,7 @@ machine, `-R` to push a local service into the sandbox. Run in the
 background with `&` if you need the shell back. For HTTP-only ports a
 shareable URL is usually simpler — see `tektona sandbox preview`.
 
-**Snapshot, branch, throw away:**
+**Fork, branch, throw away:**
 ```sh
 tektona sandbox fork <id> --mode filesystem --ssh   # cheap branch
 tektona sandbox fork <id> --mode full --ssh         # includes RAM
