@@ -1,6 +1,6 @@
 ---
 name: tektonactl
-description: Use when doing work inside a Tektona sandbox — running or managing processes (background servers, one-off commands, interactive shells, logs, autostart) via `tektonactl process`, or computer use (screenshots, clicking, typing, scrolling, clipboard, driving Chrome on the desktop). Also covers printing Tektona's egress CA (`tektonactl ca cert`) so tools with their own trust store (e.g. Java keytool) can import it. Invoked from outside via `tektona ssh <id> -- tektonactl ...`.
+description: Use when doing work inside a Tektona sandbox — running or managing processes (background servers, one-off commands, interactive shells, logs, autostart) via `tektonactl process`, or computer use (screenshots, clicking, typing, scrolling, clipboard, driving Chrome on the desktop). Also covers printing Tektona's egress CA (`tektonactl ca cert`) so tools with their own trust store (e.g. Java keytool) can import it. Also covers reading information about the sandbox (`tektonactl info`). Invoked from outside via `tektona ssh <id> -- tektonactl ...`.
 ---
 
 # tektonactl — in-sandbox control tool
@@ -62,13 +62,33 @@ because it floats; bare `image@sha256:...` digests are accepted.
 ## Top level
 
 ```
-tektonactl get                        # identity, uptime, image digest (aliases: info, show)
+tektonactl info                       # information about the sandbox
+tektonactl info --output json         # the same fields as JSON
+tektonactl info id                    # the id alone, no trailing newline
 tektonactl process <subcommand>       # run and manage processes (aliases: proc, ps, p)
 tektonactl desktop <subcommand>       # GUI: screenshot, mouse, keyboard, clipboard
 tektonactl ca cert                    # print Tektona's egress CA as PEM
 ```
 
 Bare `tektonactl` or `--help` prints usage and exits 0.
+
+## `tektonactl info` — information about the sandbox
+
+```sh
+tektonactl info                  # information about the sandbox, as text
+tektonactl info --output json    # same fields: sandbox_id, uptime_ms, image_id
+tektonactl info id               # the id alone, with no trailing newline
+```
+
+`id` is the only field name. `sandbox-id` is an alias for it. Use either when
+a script needs the raw id:
+
+```sh
+tektonactl info id > /tmp/sandbox-id
+```
+
+The id is always the sandbox you run in. A fork reports its own id, not the
+id of the sandbox it forked from. The old names `get` and `show` do not work.
 
 ## Injected secrets are NOT visible in the sandbox
 

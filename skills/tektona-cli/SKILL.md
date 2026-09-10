@@ -548,7 +548,7 @@ Once SSHed in, `tektonactl` is on `PATH` and drives the desktop and
 sandbox introspection. From outside the sandbox, wrap it:
 
 ```sh
-tektona ssh <id> -- tektonactl get
+tektona ssh <id> -- tektonactl info
 tektona ssh <id> -- tektonactl desktop screenshot -o /tmp/s.png
 ```
 
