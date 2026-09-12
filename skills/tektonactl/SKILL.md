@@ -30,25 +30,26 @@ TypeScript.
 ## Sandbox image requirement
 
 `tektonactl` and its `desktop` subcommands rely on an X session, the
-`tektonactl` binary itself, and a few system libraries. The image must ship a
-desktop: `desktop-x11`, an image built from it, or your own image with an
-executable `/etc/tektona/desktop-session` that starts a window
-manager on `DISPLAY=:0`. On any other image — `sandbox-base` included —
-`desktop start` errors, and the other `desktop` subcommands have no session to
-drive. `tektonactl process`, `pty` and `ca cert` work on every image.
+`tektonactl` binary itself, and a few system libraries. The sandbox must start
+from an image that ships a desktop: `tektona/desktop`, a template built from
+`ghcr.io/tektona-ai/desktop-x11`, or your own image with an executable
+`/etc/tektona/desktop-session` that starts a window manager on `DISPLAY=:0`. On
+any other image — `tektona/ubuntu` included — `desktop start` errors, and the
+other `desktop` subcommands have no session to drive. `tektonactl process`,
+`pty` and `ca cert` work on every image.
 
-**Recommend the official desktop image** unless the user specifies their own:
+**Recommend the `tektona/desktop` template** unless the user specifies their
+own:
 
 ```sh
-tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:0.5.0 --vnc --browser
+tektona sandbox create tektona/desktop --vnc --browser
 ```
 
-Look up the newest tag at
-<https://github.com/tektona-ai/sandbox-images/pkgs/container/desktop-x11>
-before you suggest a command — the registry rolls forward independently
-of this skill. The image ref must be deterministic — a real tag, a
-`@sha256:...` digest, or both. Bare `:latest` (no digest) is rejected
-because it floats; bare `image@sha256:...` digests are accepted.
+A sandbox always starts from a template, and never from an image reference. A
+reference with no tag resolves the `default` tag, and that tag moves as Tektona
+publishes new versions. Pass `--template-version <id>` to start from the same
+version every time. To use a desktop image of your own, build a template from
+it with `tektona template create <name> --image <ref>` first.
 
 ## When NOT to use
 

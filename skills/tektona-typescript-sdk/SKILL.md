@@ -54,7 +54,7 @@ await tek.secret.create({
 //   --host api.anthropic.com --header 'x-api-key=${secret:anthropic}'
 
 const sandbox = await tek.sandbox.create({
-  image: 'node:22',
+  template: 'tektona/ubuntu',
   egress_proxy_profile: 'team-defaults',   // ← without this, nothing is injected
   // ENV — non-secret config, visible in-box (the right place for these)
   env: { ANTHROPIC_MODEL: 'claude-sonnet-4-5' },
@@ -145,7 +145,7 @@ Three asymmetries bite:
 
 | Task | Code |
 |---|---|
-| Create a sandbox | `tek.sandbox.create({ image, resources, env, egress_network_policy })` |
+| Create a sandbox | `tek.sandbox.create({ template, resources, env, egress_network_policy })` |
 | Create with a request timeout | `tek.sandbox.create(body, { timeoutMs: 120_000 })` |
 | Get one | `tek.sandbox.get(id)` |
 | List (one page) | `tek.sandbox.list({ limit: 50, state: ['running'] })` |
@@ -218,7 +218,7 @@ The rule is mechanical:
 
 ```ts
 const sandbox = await tek.sandbox.create({
-  image: 'ghcr.io/tektona-ai/sandbox-base:0.5.0',
+  template: 'tektona/ubuntu',
   egress_network_policy: 'tektona/open',  // body → snake_case
   resources: { cpu: 2, memory: 4, disk: 20 },  // cores, GiB, GiB
 })
@@ -239,36 +239,36 @@ Process options are the exception that proves the rule: `run`/`start` take
 SDK-owned camelCase options (`preventAutoPause`, `onHibernate`,
 `timeoutSeconds`, `maxLogBytes`) and the SDK maps them onto the wire body.
 
-## Choosing an image
+## Choosing a template
 
-Any OCI image works. The reference must be **deterministic** — it must not float
-over time. A non-`latest` tag, a `@sha256:...` digest, or both will satisfy that:
+`create` takes a `template` reference, and never an image. A reference carries a
+scope and a name: `tektona/ubuntu` for a template Tektona provides, `go-dev` for
+one in the current project, `org/go-dev` for one the organization owns. Add
+`:<tag>` to pick a tag; no tag means the `default` tag, and that tag moves.
 
-```text
-image:tag                        ✓
-image:tag@sha256:<digest>        ✓  tag + exact-build pin
-image@sha256:<digest>            ✓  digest only (most deterministic)
-image:latest@sha256:<digest>     ✓  :latest is fine when pinned by digest
-image:latest                     ✗  bare floating tag
-image                            ✗  no tag and no digest
-```
-
-**Start from an official image** unless the user names their own. Both are Ubuntu
-24.04 and **boot with systemd** (image `0.5.0`+):
+**Start from a Tektona template** unless the user names their own. Both are
+Ubuntu 24.04 and **boot with systemd**:
 
 ```text
-ghcr.io/tektona-ai/sandbox-base:<tag>   # headless: agent, CI, and server work
-ghcr.io/tektona-ai/desktop-x11:<tag>    # sandbox-base + X11 desktop, Chrome — for VNC
+tektona/ubuntu    headless: agent, CI, and server work
+tektona/desktop   tektona/ubuntu plus an X11 desktop and Chrome — for VNC
 ```
 
-`sandbox-base` ships Claude Code, Codex and opencode on the `PATH`, Node 22 LTS,
-code-server, git, Python 3, and a build toolchain. Resolve `<tag>` against the
-registry before you write it into code:
-<https://github.com/tektona-ai/sandbox-images/pkgs/container/sandbox-base>
+`tektona/ubuntu` ships Claude Code, Codex and opencode on the `PATH`, Node 22
+LTS, code-server, git, Python 3, and a build toolchain.
 
-A **private** image needs a registry credential — `tek.registry.create(body)`,
-with `{ dryRun: true }` to test the connection without saving. A sandbox that
-errors right after create usually has a registry endpoint or namespace mismatch.
+To start from an OCI image of your own, build a template from it first. The
+`generated` namespace covers templates, versions, tags and builds. The shortest
+path from a shell is:
+
+```sh
+tektona template create my-app --image ghcr.io/acme/my-app:1.4.0
+```
+
+Then name `my-app` in the create body. A **private** image needs a registry
+credential — `tek.registry.create(body)`, with `{ dryRun: true }` to test the
+connection without saving. A build that fails on the pull usually has a registry
+endpoint or namespace mismatch.
 
 ## Common workflows
 
@@ -284,7 +284,7 @@ import { SandboxState } from '@tektona/sdk'
 // Only these three lead to running. Anything else is terminal or needs a resume.
 const PENDING: string[] = [SandboxState.Scheduling, SandboxState.BuildingImage, SandboxState.Resuming]
 
-let sandbox = await tek.sandbox.create({ image: 'node:22' }, { timeoutMs: 120_000 })
+let sandbox = await tek.sandbox.create({ template: 'tektona/ubuntu' }, { timeoutMs: 120_000 })
 const deadline = Date.now() + 300_000
 while (sandbox.state !== SandboxState.Running) {
   if (!PENDING.includes(sandbox.state)) {
@@ -466,7 +466,7 @@ network. **Silent in-VM compute looks idle**, so a build or a training run gets
 hibernated mid-job. Disable auto-pause before you launch one:
 
 ```ts
-await tek.sandbox.create({ image: 'node:22', auto_pause_after: '0' })  // '0' = never
+await tek.sandbox.create({ template: 'tektona/ubuntu', auto_pause_after: '0' })  // '0' = never
 await sandbox.updateLifecycleConfig({ auto_pause_after: '15m', auto_resume: true })
 ```
 

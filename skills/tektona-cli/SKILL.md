@@ -44,7 +44,7 @@ tektona egress-proxy rule add team-defaults \
   --host api.anthropic.com --header 'x-api-key=${secret:anthropic}'
 
 # ENV — non-secret config, visible in-box (the right place for these)
-tektona sandbox create -i node:22 --env ANTHROPIC_MODEL=claude-sonnet-4-5
+tektona sandbox create tektona/ubuntu --env ANTHROPIC_MODEL=claude-sonnet-4-5
 #   NOT: --env ANTHROPIC_API_KEY=...   ← that would expose the key in the box
 ```
 
@@ -160,9 +160,9 @@ are admin on every project automatically.
 | Create project | `tektona project create <name> --org <slug> --display-name <label> [--description <d>]` (alias `p new`) |
 | Update project | `tektona project update <project> --org <slug> [--display-name <l>] [--description <d>]` |
 | Switch context | `tektona ctx set <org/project>` (copy a CONTEXT value from `project ls`) |
-| Create sandbox | `tektona sandbox create -i <image> [--cpu N --memory N --disk N --env K=V --egress-network-policy <policy> --egress-proxy <profile>]` |
-| Create + SSH in | `tektona s c -i ghcr.io/tektona-ai/desktop-x11:<tag> --ssh` |
-| Create + VNC in browser | `tektona s c -i <image> --vnc --browser` |
+| Create sandbox | `tektona sandbox create <template> [--template-version <id> --cpu N --memory N --disk N --env K=V --egress-network-policy <policy> --egress-proxy <profile>]` |
+| Create + SSH in | `tektona s c tektona/desktop --ssh` |
+| Create + VNC in browser | `tektona s c tektona/desktop --vnc --browser` |
 | List active (yours only — see Ownership) | `tektona sandbox ls` |
 | List all (incl. terminated) | `tektona sandbox ls --include-deleted` |
 | List with full digests + resources | `tektona sandbox ls -w` |
@@ -244,61 +244,80 @@ Add `-o json` to most commands for machine-readable output. Aliases:
 `screenshot` → `ss`, `revoke-preview` → `rp`, `process` → `proc`/`ps`/`p`.
 `ls`/`list` are interchangeable.
 
-## Choosing an image
+## Choosing a template
 
-Any OCI image works (`-i ubuntu:24.04`, `-i node:22`, `-i python:3.12`,
-or your team's own image). The reference must be **deterministic** —
-i.e. it must not float over time. A non-`latest` tag, a `@sha256:...`
-digest, or both will satisfy that. The only rejected shapes are the
-ones that float:
+Every sandbox starts from a template. `sandbox create` takes a template
+reference, and never an image. A reference carries a scope and a name:
 
 ```text
-image:tag                        ✓
-image:tag@sha256:<digest>        ✓  tag + exact-build pin
-image@sha256:<digest>            ✓  digest only (most deterministic, OCI-standard)
-image:latest@sha256:<digest>     ✓  :latest is fine when pinned by digest
-image:latest                     ✗  bare floating tag
-image                            ✗  no tag and no digest
+tektona/ubuntu    a template Tektona provides
+go-dev            a template in the current project
+project/go-dev    the same, written out
+org/go-dev        a template the organization owns
+go-dev:stable     the `stable` tag; no tag means the `default` tag
 ```
 
-If the user asks for "the latest X" and you don't have a tag, look up
-the highest-numbered tag on the image's registry page (or use `crane
-ls <repo>` / `docker buildx imagetools inspect <repo>`) and pin to
-that. If you only have a digest from a registry inspection, the bare
-`image@sha256:...` form is the cleanest pin and is fully accepted.
+**Start from a Tektona template** unless the user names their own. Both are
+Ubuntu 24.04 and **boot with systemd**, so `systemctl` works and a daemon
+installed with `apt` keeps running:
 
-**Start from an official image** unless the user names their own. Both are
-Ubuntu 24.04 and **boot with systemd** (image `0.5.0`+), so `systemctl` works and
-a daemon installed with `apt` keeps running:
+```text
+tektona/ubuntu    headless: agent, CI, and server work
+tektona/desktop   tektona/ubuntu plus an X11 desktop and Chrome — for VNC and `tektonactl desktop`
+```
+
+`tektona/ubuntu` ships Claude Code, Codex and opencode on the `PATH`, Node 22
+LTS, code-server, git, Python 3, and a build toolchain, plus a `tektona` user
+with passwordless sudo. A template built from a bare library image such as
+`node:24` costs you all of that **and systemd**, so a long-running service then
+needs a process supervisor — use `sandbox process run --autostart` instead.
+
+**To start from an OCI image, build a template from it first.** `--image` lives
+on the template commands, and never on `sandbox create`:
 
 ```sh
-ghcr.io/tektona-ai/sandbox-base:<tag>   # headless: agent, CI, and server work
-ghcr.io/tektona-ai/desktop-x11:<tag>    # sandbox-base + X11 desktop, Chrome — for VNC and `tektonactl desktop`
+tektona template create my-app --image ghcr.io/acme/my-app:1.4.0   # creates it, builds a version, tags it `default`
+tektona sandbox create my-app                                      # starts from that version
+
+tektona template build run my-app --image ghcr.io/acme/my-app:1.5.0 --tag default   # rebuild, and promote
+tektona template ls                                                # the templates you can use
+tektona template version ls my-app                                 # versions, newest first
 ```
 
+`template create` waits for the build and prints its steps and log. It exits
+non-zero when the build fails. `build run` creates the template too when it does
+not exist, and moves no tag unless you name one.
+
+A build accepts any valid image reference, a floating tag included: it resolves
+the reference to a digest and records that digest on the version. Name the tag
+the user asked for. If they ask for "the latest X" and you have no tag, look up
+the highest-numbered tag on the registry page (or use `crane ls <repo>` /
+`docker buildx imagetools inspect <repo>`).
+
+**Pin what a create starts from**, because a bare reference resolves the
+`default` tag and that tag moves:
+
+```sh
+tektona sandbox create go-dev:stable                    # a tag you control
+tektona sandbox create go-dev --template-version <id>   # an exact version, ignoring the tag
+```
+
+`<id>` is the 26-character version id `tektona template version ls` prints.
+
 **`tektona sandbox desktop start` and every `tektonactl desktop` command need an
-image that ships a desktop.** That is `desktop-x11`, an image built from it, or
-your own image with an executable `/etc/tektona/desktop-session` that
-starts a window manager on `DISPLAY=:0`. `desktop start` errors on any other
-image, `sandbox-base` included.
+image that ships a desktop.** That is `tektona/desktop`, a template built from
+`ghcr.io/tektona-ai/desktop-x11`, or your own image with an executable
+`/etc/tektona/desktop-session` that starts a window manager on `DISPLAY=:0`.
+`desktop start` errors on any other image, `tektona/ubuntu` included.
 
 `tektona vnc` and `tektona sandbox screenshot` need no desktop image. They read
 the sandbox screen, which shows the text console when no desktop runs — so a
 black or console-only VNC view usually means the image ships no desktop.
 
-`sandbox-base` already ships Claude Code, Codex and opencode on the `PATH`, Node
-22 LTS, code-server, git, Python 3, and a build toolchain, plus a `tektona` user
-with passwordless sudo. Reaching for a bare library image such as `node:24`
-costs you all of that **and systemd**, so a long-running service then needs a
-process supervisor — use `sandbox process run --autostart` instead.
-
-Resolve `<tag>` against the registry before you suggest a command:
-<https://github.com/tektona-ai/sandbox-images/pkgs/container/sandbox-base>
-
 A **private** image needs a registry credential, which is stored per project in
 the console (Project settings → Registries) or through the API. There is no
-`tektona registry` command — do not hunt for one. A sandbox that errors right
-after create usually has a registry endpoint/namespace mismatch.
+`tektona registry` command — do not hunt for one. A build that fails on the pull
+usually has a registry endpoint/namespace mismatch.
 
 ## Common workflows
 
@@ -313,14 +332,14 @@ returned project. The same flag-only form works for `tektona org create`.
 
 **Spin up a fresh dev box and drop into it:**
 ```sh
-tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:<tag> --cpu 4 --memory 4 --ssh
+tektona sandbox create tektona/desktop --cpu 4 --memory 4 --ssh
 ```
 Use `--egress-network-policy tektona/open` (alias `--egress-policy`) if you need
 unrestricted egress (default policy restricts egress).
 
 **Spin up a desktop sandbox and open VNC:**
 ```sh
-tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:<tag> --vnc --browser
+tektona sandbox create tektona/desktop --vnc --browser
 ```
 
 **Wait for a sandbox to be ready:**
@@ -329,7 +348,7 @@ tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:<tag> --vnc --browser
 `--ssh` / `--vnc` to `create` (which block until the connection is up),
 or use `tektona sandbox wait`:
 ```sh
-ID=$(tektona sandbox create -i ghcr.io/tektona-ai/desktop-x11:<tag> -o json | jq -r .id)
+ID=$(tektona sandbox create tektona/desktop -o json | jq -r .id)
 tektona sandbox wait "$ID"                                # default: state=running, timeout=5m
 tektona sandbox wait "$ID" --state running --timeout 3m
 tektona sandbox wait "$ID" --state paused                 # matches hibernated or suspended
@@ -345,7 +364,7 @@ broken images.
 
 **Run a server in a sandbox and share it:**
 ```sh
-ID=$(tektona s c -i node:22 -o json | jq -r .id)
+ID=$(tektona s c tektona/ubuntu -o json | jq -r .id)
 tektona sandbox process run "$ID" -d --name web --cwd /workspace -- npm start
 tektona sandbox preview "$ID" 3000 --ttl 4h --open
 ```
@@ -463,7 +482,7 @@ job's processes survive and continue on resume, but wall-clock time stalls while
 it's paused. Before launching a long, network-silent job, disable auto-pause:
 
 ```sh
-tektona sandbox create -i node:22 --auto-pause never          # at create time
+tektona sandbox create tektona/ubuntu --auto-pause never      # at create time
 tektona sandbox lifecycle <id> --auto-pause never             # or on an existing sandbox
 ```
 
@@ -472,7 +491,7 @@ interval knobs only), or `inherit` (fall through **sandbox override → project
 default → platform default**). Set any subset at create or later:
 
 ```sh
-tektona sandbox create -i node:22 \
+tektona sandbox create tektona/ubuntu \
   --auto-pause 2h --auto-pause-mode suspend --auto-resume false --auto-delete 7d
 tektona sandbox lifecycle <id> --auto-pause 30m --auto-delete 30d
 ```
