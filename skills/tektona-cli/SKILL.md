@@ -164,7 +164,7 @@ are admin on every project automatically.
 | Create + SSH in | `tektona s c -i ghcr.io/tektona-ai/desktop-x11:<tag> --ssh` |
 | Create + VNC in browser | `tektona s c -i <image> --vnc --browser` |
 | List active (yours only — see Ownership) | `tektona sandbox ls` |
-| List all (incl. terminated) | `tektona sandbox ls -A` |
+| List all (incl. terminated) | `tektona sandbox ls --include-deleted` |
 | List with full digests + resources | `tektona sandbox ls -w` |
 | Filter by state | `tektona sandbox ls --state running` |
 | Include others' shared sandboxes | `tektona sandbox ls --scope shared\|all` |
