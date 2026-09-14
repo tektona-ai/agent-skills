@@ -44,7 +44,7 @@ tektona egress-proxy rule add team-defaults \
   --host api.anthropic.com --header 'x-api-key=${secret:anthropic}'
 
 # ENV — non-secret config, visible in-box (the right place for these)
-tektona sandbox create tektona/ubuntu --env ANTHROPIC_MODEL=claude-sonnet-4-5
+tektona sandbox create tektona/sandbox-base --env ANTHROPIC_MODEL=claude-sonnet-4-5
 #   NOT: --env ANTHROPIC_API_KEY=...   ← that would expose the key in the box
 ```
 
@@ -250,10 +250,10 @@ Every sandbox starts from a template. `sandbox create` takes a template
 reference, and never an image. A reference carries a scope and a name:
 
 ```text
-tektona/ubuntu    a template Tektona provides
-go-dev            a template in the current project
-project/go-dev    the same, written out
-org/go-dev        a template the organization owns
+tektona/sandbox-base    a template Tektona provides
+go-dev                  a template in the current project
+project/go-dev          the same, written out
+org/go-dev              a template the organization owns
 go-dev:stable     the `stable` tag; no tag means the `default` tag
 ```
 
@@ -262,11 +262,11 @@ Ubuntu 24.04 and **boot with systemd**, so `systemctl` works and a daemon
 installed with `apt` keeps running:
 
 ```text
-tektona/ubuntu    headless: agent, CI, and server work
-tektona/desktop   tektona/ubuntu plus an X11 desktop and Chrome — for VNC and `tektonactl desktop`
+tektona/sandbox-base    headless: agent, CI, and server work
+tektona/desktop         tektona/sandbox-base plus an X11 desktop and Chrome — for VNC and `tektonactl desktop`
 ```
 
-`tektona/ubuntu` ships Claude Code, Codex and opencode on the `PATH`, Node 22
+`tektona/sandbox-base` ships Claude Code, Codex and opencode on the `PATH`, Node 22
 LTS, code-server, git, Python 3, and a build toolchain, plus a `tektona` user
 with passwordless sudo. A template built from a bare library image such as
 `node:24` costs you all of that **and systemd**, so a long-running service then
@@ -308,7 +308,7 @@ tektona sandbox create go-dev --template-version <id>   # an exact version, igno
 image that ships a desktop.** That is `tektona/desktop`, a template built from
 `ghcr.io/tektona-ai/desktop-x11`, or your own image with an executable
 `/etc/tektona/desktop-session` that starts a window manager on `DISPLAY=:0`.
-`desktop start` errors on any other image, `tektona/ubuntu` included.
+`desktop start` errors on any other image, `tektona/sandbox-base` included.
 
 `tektona vnc` and `tektona sandbox screenshot` need no desktop image. They read
 the sandbox screen, which shows the text console when no desktop runs — so a
@@ -364,7 +364,7 @@ broken images.
 
 **Run a server in a sandbox and share it:**
 ```sh
-ID=$(tektona s c tektona/ubuntu -o json | jq -r .id)
+ID=$(tektona s c tektona/sandbox-base -o json | jq -r .id)
 tektona sandbox process run "$ID" -d --name web --cwd /workspace -- npm start
 tektona sandbox preview "$ID" 3000 --ttl 4h --open
 ```
@@ -482,7 +482,7 @@ job's processes survive and continue on resume, but wall-clock time stalls while
 it's paused. Before launching a long, network-silent job, disable auto-pause:
 
 ```sh
-tektona sandbox create tektona/ubuntu --auto-pause never      # at create time
+tektona sandbox create tektona/sandbox-base --auto-pause never      # at create time
 tektona sandbox lifecycle <id> --auto-pause never             # or on an existing sandbox
 ```
 
@@ -491,7 +491,7 @@ interval knobs only), or `inherit` (fall through **sandbox override → project
 default → platform default**). Set any subset at create or later:
 
 ```sh
-tektona sandbox create tektona/ubuntu \
+tektona sandbox create tektona/sandbox-base \
   --auto-pause 2h --auto-pause-mode suspend --auto-resume false --auto-delete 7d
 tektona sandbox lifecycle <id> --auto-pause 30m --auto-delete 30d
 ```

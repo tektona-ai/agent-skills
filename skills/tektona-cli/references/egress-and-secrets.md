@@ -73,7 +73,7 @@ sandbox's own config and keep the real value in the secret.
 At create time (the project default applies automatically otherwise):
 
 ```sh
-tektona sandbox create tektona/ubuntu --egress-proxy team-defaults
+tektona sandbox create tektona/sandbox-base --egress-proxy team-defaults
 #   --egress-proxy-profile is the long-form alias of --egress-proxy
 ```
 

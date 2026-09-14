@@ -34,7 +34,7 @@ TypeScript.
 from an image that ships a desktop: `tektona/desktop`, a template built from
 `ghcr.io/tektona-ai/desktop-x11`, or your own image with an executable
 `/etc/tektona/desktop-session` that starts a window manager on `DISPLAY=:0`. On
-any other image — `tektona/ubuntu` included — `desktop start` errors, and the
+any other image — `tektona/sandbox-base` included — `desktop start` errors, and the
 other `desktop` subcommands have no session to drive. `tektonactl process`,
 `pty` and `ca cert` work on every image.
 

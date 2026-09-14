@@ -54,7 +54,7 @@ await tek.secret.create({
 //   --host api.anthropic.com --header 'x-api-key=${secret:anthropic}'
 
 const sandbox = await tek.sandbox.create({
-  template: 'tektona/ubuntu',
+  template: 'tektona/sandbox-base',
   egress_proxy_profile: 'team-defaults',   // ← without this, nothing is injected
   // ENV — non-secret config, visible in-box (the right place for these)
   env: { ANTHROPIC_MODEL: 'claude-sonnet-4-5' },
@@ -218,7 +218,7 @@ The rule is mechanical:
 
 ```ts
 const sandbox = await tek.sandbox.create({
-  template: 'tektona/ubuntu',
+  template: 'tektona/sandbox-base',
   egress_network_policy: 'tektona/open',  // body → snake_case
   resources: { cpu: 2, memory: 4, disk: 20 },  // cores, GiB, GiB
 })
@@ -242,7 +242,7 @@ SDK-owned camelCase options (`preventAutoPause`, `onHibernate`,
 ## Choosing a template
 
 `create` takes a `template` reference, and never an image. A reference carries a
-scope and a name: `tektona/ubuntu` for a template Tektona provides, `go-dev` for
+scope and a name: `tektona/sandbox-base` for a template Tektona provides, `go-dev` for
 one in the current project, `org/go-dev` for one the organization owns. Add
 `:<tag>` to pick a tag; no tag means the `default` tag, and that tag moves.
 
@@ -250,11 +250,11 @@ one in the current project, `org/go-dev` for one the organization owns. Add
 Ubuntu 24.04 and **boot with systemd**:
 
 ```text
-tektona/ubuntu    headless: agent, CI, and server work
-tektona/desktop   tektona/ubuntu plus an X11 desktop and Chrome — for VNC
+tektona/sandbox-base    headless: agent, CI, and server work
+tektona/desktop         tektona/sandbox-base plus an X11 desktop and Chrome — for VNC
 ```
 
-`tektona/ubuntu` ships Claude Code, Codex and opencode on the `PATH`, Node 22
+`tektona/sandbox-base` ships Claude Code, Codex and opencode on the `PATH`, Node 22
 LTS, code-server, git, Python 3, and a build toolchain.
 
 To start from an OCI image of your own, build a template from it first. The
@@ -284,7 +284,7 @@ import { SandboxState } from '@tektona/sdk'
 // Only these three lead to running. Anything else is terminal or needs a resume.
 const PENDING: string[] = [SandboxState.Scheduling, SandboxState.BuildingImage, SandboxState.Resuming]
 
-let sandbox = await tek.sandbox.create({ template: 'tektona/ubuntu' }, { timeoutMs: 120_000 })
+let sandbox = await tek.sandbox.create({ template: 'tektona/sandbox-base' }, { timeoutMs: 120_000 })
 const deadline = Date.now() + 300_000
 while (sandbox.state !== SandboxState.Running) {
   if (!PENDING.includes(sandbox.state)) {
@@ -466,7 +466,7 @@ network. **Silent in-VM compute looks idle**, so a build or a training run gets
 hibernated mid-job. Disable auto-pause before you launch one:
 
 ```ts
-await tek.sandbox.create({ template: 'tektona/ubuntu', auto_pause_after: '0' })  // '0' = never
+await tek.sandbox.create({ template: 'tektona/sandbox-base', auto_pause_after: '0' })  // '0' = never
 await sandbox.updateLifecycleConfig({ auto_pause_after: '15m', auto_resume: true })
 ```
 
