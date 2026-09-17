@@ -160,13 +160,14 @@ are admin on every project automatically.
 | Create project | `tektona project create <name> --org <slug> --display-name <label> [--description <d>]` (alias `p new`) |
 | Update project | `tektona project update <project> --org <slug> [--display-name <l>] [--description <d>]` |
 | Switch context | `tektona ctx set <org/project>` (copy a CONTEXT value from `project ls`) |
-| Create sandbox | `tektona sandbox create <template> [--template-version <id> --cpu N --memory N --disk N --env K=V --egress-network-policy <policy> --egress-proxy <profile>]` |
+| Create sandbox | `tektona sandbox create <template> [--tag <tag> ... --template-version <id> --cpu N --memory N --disk N --env K=V --egress-network-policy <policy> --egress-proxy <profile>]` |
 | Create + SSH in | `tektona s c tektona/desktop --ssh` |
 | Create + VNC in browser | `tektona s c tektona/desktop --vnc --browser` |
 | List active (yours only — see Ownership) | `tektona sandbox ls` |
 | List all (incl. terminated) | `tektona sandbox ls --include-deleted` |
 | List with full digests + resources | `tektona sandbox ls -w` |
 | Filter by state | `tektona sandbox ls --state running` |
+| Filter by tags | `tektona sandbox ls --tag <tag> [--tag <tag> ...]` (all tags must match) |
 | Include others' shared sandboxes | `tektona sandbox ls --scope shared\|all` |
 | Search every project in the org | `tektona sandbox ls --all-projects` |
 | Share with the project | `tektona sandbox share <id> [--type use\|manage]` |
@@ -180,7 +181,9 @@ are admin on every project automatically.
 | Resume | `tektona sandbox resume <id>` |
 | Reboot (orderly restart) | `tektona sandbox reboot <id> [-y]` — processes get SIGTERM; recent writes survive |
 | Reset (hard reset) | `tektona sandbox reset <id> [-y]` — like pulling the power; un-synced writes lost; use only when the sandbox is unresponsive |
-| Fork (copy the disk) | `tektona sandbox fork <id> [--mode filesystem\|full]` |
+| Fork (copy the disk) | `tektona sandbox fork <id> [--mode filesystem\|full] [--tag <tag> ...\|--clear-tags]` |
+| Replace sandbox tags | `tektona sandbox tag replace <id> [--tag <tag> ...]` |
+| Add sandbox tags | `tektona sandbox tag add <id> --tag <tag> [--tag <tag> ...]` |
 | Delete | `tektona sandbox delete <id...>` / `--all` / `-y` |
 | SSH | `tektona ssh <id> [-- <command>]` |
 | One-shot exec | `tektona ssh <id> -- <command>` |
@@ -447,6 +450,23 @@ tektona sandbox fork <id> --mode filesystem --ssh   # cheap branch
 tektona sandbox fork <id> --mode full --ssh         # includes RAM
 tektona sandbox delete <fork-id> -y
 ```
+
+**Set sandbox tags:**
+
+```sh
+tektona sandbox tag replace <id> --tag review --tag frontend
+tektona sandbox tag add <id> --tag urgent
+tektona sandbox tag replace <id>       # clear all tags
+tektona sandbox fork <id> --tag review # replace tags on the fork
+tektona sandbox fork <id>               # inherit the parent tags
+tektona sandbox fork <id> --clear-tags  # create an untagged fork
+```
+
+Tags are unique strings with a maximum of 20 items. Each tag has 1 to 100
+ASCII letters, numbers, `_`, `.`, `-`, or `/`. Tags cannot start with `tektona/`.
+Use `--tag` more than once on create, fork, list, replace, and add. `add` keeps
+existing tags. `replace` sets the complete list. `--tag` and `--clear-tags`
+cannot be used together.
 
 **Move files in and out:**
 ```sh
