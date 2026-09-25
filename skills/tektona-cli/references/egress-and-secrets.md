@@ -154,8 +154,8 @@ ARN in the response is proof the proxy signed the request, because the sandbox
 never held the real credential.
 
 ```sh
-tektona ssh <id> -- curl -sS -X POST https://sts.eu-central-1.amazonaws.com/ \
-  -H 'Accept: application/json' -d 'Action=GetCallerIdentity&Version=2011-06-15'
+tektona ssh <id> -- "curl -sS -X POST https://sts.eu-central-1.amazonaws.com/ \
+  -H 'Accept: application/json' -d 'Action=GetCallerIdentity&Version=2011-06-15'"
 ```
 
 `InvalidClientTokenId` means the rule never fired and the placeholder reached
