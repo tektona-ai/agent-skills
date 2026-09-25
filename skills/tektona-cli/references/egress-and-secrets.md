@@ -68,6 +68,100 @@ Optional `--path <prefix>` scopes a rule to a path prefix.
 A rule **overwrites** a header the sandbox already set. Put a placeholder in the
 sandbox's own config and keep the real value in the secret.
 
+## AWS: a signature, not a header
+
+An AWS API accepts no static header. It authenticates a request with a SigV4
+signature computed over that request's own method, host, path, query and body,
+so the value that authenticates one request is wrong for the next. No stored
+string can stand in for it, and `--header` cannot reach AWS.
+
+A rule that names a region and a service makes the proxy compute the signature
+at the egress boundary. The credential never enters the sandbox.
+
+### Store the credential
+
+An AWS credential has two halves, and they are one credential:
+
+```sh
+printf '%s' "$AWS_SECRET_ACCESS_KEY" | \
+  tektona secret set aws-logs --scope project \
+    --type aws --aws-access-key-id AKIA...
+```
+
+The access key id is not secret — it travels in cleartext in every signed
+request — so Tektona checks its shape before saving. The secret access key is
+the confidential half and is read from stdin.
+
+Both halves rotate together. A rotation names the new key id **and** the new
+secret access key; naming only one is refused, because a mismatched pair fails
+at AWS and not here.
+
+Use a long-lived key (`AKIA`). A temporary credential (`ASIA`) also needs a
+session token, which Tektona does not carry, so it is refused at save time.
+
+### Bind the host
+
+```sh
+tektona egress-proxy rule add aws \
+  --host '*.es.amazonaws.com' \
+  --aws-region eu-central-1 --aws-service es \
+  --aws-secret aws-logs
+```
+
+`--aws-service` is the AWS service name in the signing scope: `es` for
+OpenSearch, or `s3`, `dynamodb`, `sqs`, `sts`, `bedrock`. It is not decoration —
+the service string is an input to the derived signing key, so a wrong one
+produces `SignatureDoesNotMatch`, and it cannot be guessed from the hostname
+(`bedrock-runtime.…` signs as `bedrock`).
+
+**One rule per service.** The service is per-request cryptographic input, so
+five AWS services are five rules even when they share a credential and a region.
+The IAM policy on the credential decides what each may actually do.
+
+### What your code still needs
+
+Most AWS SDKs refuse to build a request with no credentials configured, so give
+them AWS's published example pair. The proxy replaces the whole signature, so
+that value never reaches AWS:
+
+```sh
+export AWS_ACCESS_KEY_ID=AKIAIOSFODNN7EXAMPLE
+export AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+```
+
+Keep the real region and endpoint in your code. The proxy corrects the
+signature, not the address.
+
+### Things that bite
+
+- **The gate is separate.** A signing rule does not make the host reachable. The
+  egress network policy must allow it too, or the request is denied even though
+  a rule matches.
+- **S3 has two host shapes.** Virtual-hosted is `<bucket>.s3.<region>.amazonaws.com`,
+  path-style is `s3.<region>.amazonaws.com`. A rule binds one host, so cover the
+  shape your SDK uses.
+- **Avoid `*.amazonaws.com`.** It reaches every AWS host, including buckets other
+  accounts own.
+- **A body up to 10 MiB** is signed whole; a larger one is signed per chunk as it
+  streams, up to the 5 GiB AWS accepts in one request. Your tool must send a
+  `Content-Length`.
+
+### Proving it works
+
+`sts:GetCallerIdentity` needs no AWS resource and no IAM permission, and its
+reply names the caller. Run it from the sandbox with the example keys above: an
+ARN in the response is proof the proxy signed the request, because the sandbox
+never held the real credential.
+
+```sh
+tektona ssh <id> -- curl -sS -X POST https://sts.eu-central-1.amazonaws.com/ \
+  -H 'Accept: application/json' -d 'Action=GetCallerIdentity&Version=2011-06-15'
+```
+
+`InvalidClientTokenId` means the rule never fired and the placeholder reached
+AWS. `SignatureDoesNotMatch` means the rule fired but the region or service is
+wrong for that endpoint.
+
 ## Attaching a treatment
 
 At create time (the project default applies automatically otherwise):

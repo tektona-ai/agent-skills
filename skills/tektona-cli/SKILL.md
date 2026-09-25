@@ -50,12 +50,24 @@ tektona sandbox create tektona/sandbox-base --env ANTHROPIC_MODEL=claude-sonnet-
 
 Two controls shape outbound traffic, and they are independent. The **gate**
 (`egress-network-policy`) decides which hosts a sandbox may reach at all. The
-**treatment** (`egress-proxy` profile) injects a header into requests to a host
-the gate already allows. A treatment never widens the gate.
+**treatment** (`egress-proxy` profile) credentials a request to a host the gate
+already allows — a header, HTTP Basic, or an AWS SigV4 signature. A treatment
+never widens the gate.
 
-**For anything beyond that — scopes, the `${secret:KEY}` grammar, attaching or
-rotating a treatment, TLS trust, or a rule that is not firing — read
-[`references/egress-and-secrets.md`](references/egress-and-secrets.md).**
+**AWS is the exception to the header rule.** An AWS API authenticates a request
+with a SigV4 signature over that request, so no stored header reaches it. Store
+the credential as `--type aws` and let a rule sign at the boundary:
+
+```sh
+printf '%s' "$AWS_SECRET_ACCESS_KEY" | \
+  tektona secret set aws-logs --type aws --aws-access-key-id AKIA...
+tektona egress-proxy rule add team-defaults --host '*.es.amazonaws.com' \
+  --aws-region eu-central-1 --aws-service es --aws-secret aws-logs
+```
+
+**For anything beyond that — scopes, the `${secret:KEY}` grammar, AWS signing in
+full, attaching or rotating a treatment, TLS trust, or a rule that is not firing
+— read [`references/egress-and-secrets.md`](references/egress-and-secrets.md).**
 
 ## Install
 
@@ -220,12 +232,14 @@ are admin on every project automatically.
 | Inspect a egress network policy | `tektona egress-network-policy info <name>` |
 | Default egress network policy | `tektona egress-network-policy default --set <name>` |
 | Set a secret (upsert; value via stdin) | `tektona secret set <key> [--scope project\|personal\|org]` (creates, or updates the value in place) |
+| Set an AWS credential (secret key via stdin) | `tektona secret set <key> --type aws --aws-access-key-id AKIA...` (both halves rotate together) |
 | List secrets (keys only) | `tektona secret ls [--scope all\|project\|personal\|org]` |
 | Delete a secret | `tektona secret rm <key> [--scope ...]` |
 | List egress proxy profiles | `tektona egress-proxy ls` (alias `egress`) |
 | Show a proxy profile + rules | `tektona egress-proxy show <name>` |
 | Create a proxy profile | `tektona egress-proxy apply <name> [--scope project\|org] [--default]` (`--default` is project-scope only) |
 | Add an inject rule | `tektona egress-proxy rule add <name> --host <domain> --header 'NAME=TEMPLATE'` |
+| Add an AWS signing rule | `tektona egress-proxy rule add <name> --host <domain> --aws-region <region> --aws-service <svc> --aws-secret <key>` (one rule per service) |
 | Remove an inject rule | `tektona egress-proxy rule rm <name> <rule-id>` (rule ids from `show`) |
 | Attach/switch a proxy profile on an existing sandbox | `tektona sandbox egress-proxy set <id> <profile>` |
 | Detach a sandbox's proxy profile | `tektona sandbox egress-proxy unset <id>` |
