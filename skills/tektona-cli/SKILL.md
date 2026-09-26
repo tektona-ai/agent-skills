@@ -275,7 +275,7 @@ go-dev:stable     the `stable` tag; no tag means the `default` tag
 ```
 
 **Start from a Tektona template** unless the user names their own. Both are
-Ubuntu 24.04 and **boot with systemd**, so `systemctl` works and a daemon
+Ubuntu 26.04 and **boot with systemd**, so `systemctl` works and a daemon
 installed with `apt` keeps running:
 
 ```text
@@ -284,10 +284,11 @@ tektona/desktop         tektona/sandbox-base plus an X11 desktop and Chrome — 
 ```
 
 `tektona/sandbox-base` ships Claude Code, Codex and opencode on the `PATH`, Node 22
-LTS, code-server, git, Python 3, and a build toolchain, plus a `tektona` user
-with passwordless sudo. A template built from a bare library image such as
-`node:24` costs you all of that **and systemd**, so a long-running service then
-needs a process supervisor — use `sandbox process run --autostart` instead.
+LTS, git, Python 3 with pipx, and a build toolchain, plus a `tektona` user
+with passwordless sudo. `~/.local/bin` is on the `PATH` of every session. A
+template built from a bare library image such as `node:24` costs you all of
+that **and systemd**, so a long-running service then needs a process
+supervisor — use `sandbox process run --autostart` instead.
 
 **To start from an OCI image, build a template from it first.** `--image` lives
 on the template commands, and never on `sandbox create`:

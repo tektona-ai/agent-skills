@@ -247,7 +247,7 @@ one in the current project, `org/go-dev` for one the organization owns. Add
 `:<tag>` to pick a tag; no tag means the `default` tag, and that tag moves.
 
 **Start from a Tektona template** unless the user names their own. Both are
-Ubuntu 24.04 and **boot with systemd**:
+Ubuntu 26.04 and **boot with systemd**:
 
 ```text
 tektona/sandbox-base    headless: agent, CI, and server work
@@ -255,7 +255,7 @@ tektona/desktop         tektona/sandbox-base plus an X11 desktop and Chrome — 
 ```
 
 `tektona/sandbox-base` ships Claude Code, Codex and opencode on the `PATH`, Node 22
-LTS, code-server, git, Python 3, and a build toolchain.
+LTS, git, Python 3 with pipx, and a build toolchain.
 
 To start from an OCI image of your own, build a template from it first. The
 `generated` namespace covers templates, versions, tags and builds. The shortest
