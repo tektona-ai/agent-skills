@@ -285,7 +285,7 @@ tektona/desktop         tektona/sandbox-base plus an X11 desktop and Chrome — 
 
 `tektona/sandbox-base` ships Claude Code, Codex and opencode on the `PATH`, Node 22
 LTS, git, Python 3 with pipx, and a build toolchain, plus a `tektona` user
-with passwordless sudo. `~/.local/bin` is on the `PATH` of every session. A
+with passwordless sudo. `/home/tektona/.local/bin` is on the `PATH`. A
 template built from a bare library image such as `node:24` costs you all of
 that **and systemd**, so a long-running service then needs a process
 supervisor — use `sandbox process run --autostart` instead.
