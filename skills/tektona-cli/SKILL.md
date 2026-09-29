@@ -173,6 +173,7 @@ are admin on every project automatically.
 | Update project | `tektona project update <project> --org <slug> [--display-name <l>] [--description <d>]` |
 | Switch context | `tektona ctx set <org/project>` (copy a CONTEXT value from `project ls`) |
 | Create sandbox | `tektona sandbox create <template> [--tag <tag> ... --template-version <id> --cpu N --memory N --disk N --env K=V --egress-network-policy <policy> --egress-proxy <profile>]` |
+| Show resource limits (min, max, default) | `tektona sandbox limits [-o json]` |
 | Create + SSH in | `tektona s c tektona/desktop --ssh` |
 | Create + VNC in browser | `tektona s c tektona/desktop --vnc --browser` |
 | List active (yours only — see Ownership) | `tektona sandbox ls` |
@@ -629,6 +630,11 @@ clipboard, windows) — load the `tektonactl` skill.
   the access gateway.
 - **Edit files by pushing them in.** `tektona sandbox cp`, or
   `tektona ssh -- cat/sed/tee`, beats driving an interactive editor over SSH.
+- **Read the limits before you ask for a large shape.** The CPU, memory and
+  disk maximum is set per installation. Run `tektona sandbox limits` before a
+  create, a resize or a template build with `--cpu`, `--memory`, `--disk` or
+  `spec.build.resources` above 2 cores, 2 GiB or 10 GiB. A value outside the
+  limit is refused, not reduced. A new request needs at least 5 GiB of disk.
 - **Set `--auto-resume false` where you mean it.** `--no-auto-resume` is a
   deprecated hidden alias.
 
