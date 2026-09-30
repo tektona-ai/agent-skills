@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "description": "Agent skills for the Tektona CLI, the in-sandbox tektonactl tool, and the TypeScript SDK. Distributed via GitHub for `npx skills add`.",
   "homepage": "https://tektona.ai",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/tektona-ai/tektona.git",
