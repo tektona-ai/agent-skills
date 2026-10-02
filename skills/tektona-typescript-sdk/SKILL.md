@@ -54,7 +54,7 @@ await tek.secret.create({
 //   --host api.anthropic.com --header 'x-api-key=${secret:anthropic}'
 
 const sandbox = await tek.sandbox.create({
-  template: 'tektona/sandbox-base',
+  template: 'tektona/desktop',
   egress_proxy_profile: 'team-defaults',   // ← without this, nothing is injected
   // ENV — non-secret config, visible in-box (the right place for these)
   env: { ANTHROPIC_MODEL: 'claude-sonnet-4-5' },
@@ -165,7 +165,7 @@ Three asymmetries bite:
 | Share / unshare | `sandbox.share({ share_type: 'use' \| 'manage' })` / `sandbox.unshare()` |
 | Transfer ownership | `sandbox.transfer({ to: 'user@example.com', reason: 'handover' })` |
 | SSH credentials | `sandbox.ssh.access()` → `{ url, token, ssh_host, ssh_port, ssh_ports? }` |
-| VNC token | `sandbox.vnc.access({ start_desktop: true })` → `{ url, token, expires_at }` |
+| VNC token | `sandbox.vnc.access({ start_desktop: true })` → `{ url, token, expires_at }` (the desktop does not start by itself) |
 | Start / stop the desktop | `sandbox.desktop.start()` / `sandbox.desktop.stop()` |
 | Screenshot (base64 PNG) | `sandbox.desktop.screenshot()` |
 | Preview URL for a port | `sandbox.preview.create(3000, { ttl: '1h' })` |
@@ -218,7 +218,7 @@ The rule is mechanical:
 
 ```ts
 const sandbox = await tek.sandbox.create({
-  template: 'tektona/sandbox-base',
+  template: 'tektona/desktop',
   egress_network_policy: 'tektona/open',  // body → snake_case
   resources: { cpu: 2, memory: 4, disk: 20 },  // cores, GiB, GiB
 })
@@ -241,21 +241,27 @@ SDK-owned camelCase options (`preventAutoPause`, `onHibernate`,
 
 ## Choosing a template
 
-`create` takes a `template` reference, and never an image. A reference carries a
-scope and a name: `tektona/sandbox-base` for a template Tektona provides, `go-dev` for
-one in the current project, `org/go-dev` for one the organization owns. Add
-`:<tag>` to pick a tag; no tag means the `default` tag, and that tag moves.
+`create` takes a `template` reference, and never an image. A template is an
+image, optional build steps and sandbox defaults. A build of it makes a
+**version**, which never changes. A **tag** points at one version, and moves.
 
-**Start from a Tektona template** unless the user names their own. Both are
-Ubuntu 26.04 and **boot with systemd**:
+A reference carries a scope and a name: `tektona/desktop` for a template Tektona
+provides (system), `go-dev` for one in the current project, `org/go-dev` for one
+every project in the organization can use. Add `:<tag>` to pick a tag; no tag
+means the `default` tag. A version id in the tag position
+(`go-dev:01JABC…`) pins one exact version.
+
+**Use `tektona/desktop` unless the user names another template.** Use
+`tektona/sandbox-base` only for headless work (CI, servers, batch jobs): it is
+smaller and has no desktop. Both are Ubuntu 26.04 and **boot with systemd**:
 
 ```text
-tektona/sandbox-base    headless: agent, CI, and server work
 tektona/desktop         tektona/sandbox-base plus an X11 desktop and Chrome — for VNC
+tektona/sandbox-base    headless: agent, CI, and server work
 ```
 
-`tektona/sandbox-base` ships Claude Code, Codex and opencode on the `PATH`, Node 22
-LTS, git, Python 3 with pipx, and a build toolchain.
+Both ship Claude Code, Codex and opencode on the `PATH`, Node 22 LTS, git,
+Python 3 with pipx, and a build toolchain.
 
 To start from an OCI image of your own, build a template from it first. The
 `generated` namespace covers templates, versions, tags and builds. The shortest
@@ -284,7 +290,7 @@ import { SandboxState } from '@tektona/sdk'
 // Only these three lead to running. Anything else is terminal or needs a resume.
 const PENDING: string[] = [SandboxState.Scheduling, SandboxState.BuildingImage, SandboxState.Resuming]
 
-let sandbox = await tek.sandbox.create({ template: 'tektona/sandbox-base' }, { timeoutMs: 120_000 })
+let sandbox = await tek.sandbox.create({ template: 'tektona/desktop' }, { timeoutMs: 120_000 })
 const deadline = Date.now() + 300_000
 while (sandbox.state !== SandboxState.Running) {
   if (!PENDING.includes(sandbox.state)) {
@@ -466,6 +472,7 @@ network. **Silent in-VM compute looks idle**, so a build or a training run gets
 hibernated mid-job. Disable auto-pause before you launch one:
 
 ```ts
+// A batch job needs no desktop, so the headless template
 await tek.sandbox.create({ template: 'tektona/sandbox-base', auto_pause_after: '0' })  // '0' = never
 await sandbox.updateLifecycleConfig({ auto_pause_after: '15m', auto_resume: true })
 ```

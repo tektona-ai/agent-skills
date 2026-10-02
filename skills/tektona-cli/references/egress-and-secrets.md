@@ -167,8 +167,8 @@ wrong for that endpoint.
 At create time (the project default applies automatically otherwise):
 
 ```sh
-tektona sandbox create tektona/sandbox-base --egress-proxy team-defaults
-#   --egress-proxy-profile is the long-form alias of --egress-proxy
+tektona sandbox create tektona/desktop --egress-proxy-profile team-defaults
+#   --egress-proxy is the short alias of --egress-proxy-profile
 ```
 
 On an **existing** sandbox — no recreate needed. The change is confirmed active on

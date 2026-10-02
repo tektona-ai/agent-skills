@@ -39,10 +39,12 @@ other `desktop` subcommands have no session to drive. `tektonactl process`,
 `pty` and `ca cert` work on every image.
 
 **Recommend the `tektona/desktop` template** unless the user specifies their
-own:
+own. The desktop does not start by itself, so start it before you drive it:
 
 ```sh
-tektona sandbox create tektona/desktop --vnc --browser
+ID=$(tektona sandbox create tektona/desktop -o json | jq -r .id)
+tektona sandbox desktop start "$ID"            # or: tektona vnc "$ID" --start-desktop --browser
+tektona ssh "$ID" -- tektonactl desktop screenshot -o /tmp/s.png
 ```
 
 A sandbox always starts from a template, and never from an image reference. A
