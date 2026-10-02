@@ -82,7 +82,7 @@ AWS, rule scopes, TLS trust and a rule that does not fire:
 - **Open the gate before you expect egress.** The default egress network
   policy is restrictive. Pass `--egress-network-policy tektona/open` at create,
   or find a policy with `tektona egress-network-policy ls`.
-- **Address a sandbox by name or its full 26-character ULID.** A prefix is rejected.
+- **Address a live sandbox by name or its full 26-character ULID.** A name needs the current org and project. Use the ID for a broken or deleted sandbox. A prefix is rejected.
 - **`sandbox ls` shows only your own sandboxes.** Add `--scope all` before you
   conclude that a sandbox is gone.
 - **Silent compute looks idle.** A sandbox hibernates after 15 minutes without
