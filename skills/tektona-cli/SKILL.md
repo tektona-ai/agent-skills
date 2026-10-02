@@ -6,7 +6,7 @@ description: Use when the user drives Tektona from a shell, or runs `tektona` / 
 # Tektona CLI
 
 Tektona runs isolated cloud sandboxes for AI agents. A sandbox is a full
-Linux VM (Ubuntu 26.04 with systemd) that starts from a **template**.
+Linux VM (Ubuntu LTS with systemd) that starts from a **template**.
 `tektona` drives sandboxes from outside: create, SSH, VNC, preview URLs, file
 copy, fork, pause. Inside a sandbox, `tektonactl` drives the desktop and
 processes — load the `tektonactl` skill for that. From TypeScript code, load

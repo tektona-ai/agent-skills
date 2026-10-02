@@ -42,8 +42,8 @@ it. A reference with no tag resolves the `default` tag.
 
 **Use `tektona/desktop` unless the user names another template.** Use
 `tektona/sandbox-base` only for headless work (CI, servers, batch jobs): it is
-smaller and has no desktop to start. Both are Ubuntu 26.04 and **boot with
-systemd**, so `systemctl` works and a daemon installed with `apt` keeps running:
+smaller and has no desktop to start. Both use the current Ubuntu LTS (26.04) and **boot
+with systemd**, so `systemctl` works and a daemon installed with `apt` keeps running:
 
 ```text
 tektona/desktop         tektona/sandbox-base plus an X11 desktop and Chrome — for VNC and `tektonactl desktop`

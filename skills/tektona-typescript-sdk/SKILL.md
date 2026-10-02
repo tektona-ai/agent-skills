@@ -253,7 +253,7 @@ means the `default` tag. A version id in the tag position
 
 **Use `tektona/desktop` unless the user names another template.** Use
 `tektona/sandbox-base` only for headless work (CI, servers, batch jobs): it is
-smaller and has no desktop. Both are Ubuntu 26.04 and **boot with systemd**:
+smaller and has no desktop. Both use the current Ubuntu LTS (26.04) and **boot with systemd**:
 
 ```text
 tektona/desktop         tektona/sandbox-base plus an X11 desktop and Chrome — for VNC
