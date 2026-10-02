@@ -12,6 +12,38 @@ The treatment never widens the gate. If the policy does not already allow the
 host, the rule is inert. Pair them: a gate that reaches `api.anthropic.com`, and
 a treatment that injects your key there.
 
+## Contents
+
+- Commands
+- Reference grammar
+- Secrets
+- Treatments and their inject rules
+- AWS: a signature, not a header
+- Attaching a treatment
+- TLS trust
+- Proving a rule works
+
+## Commands
+
+| Task | Command |
+|---|---|
+| Show egress network policies | `tektona egress-network-policy ls` (alias `np`) |
+| Inspect a egress network policy | `tektona egress-network-policy info <name>` |
+| Default egress network policy | `tektona egress-network-policy default --set <name>` |
+| Set a secret (upsert; value via stdin) | `tektona secret set <key> [--scope project\|personal\|org]` (creates, or updates the value in place) |
+| Set an AWS credential (secret key via stdin) | `tektona secret set <key> --type aws --aws-access-key-id AKIA...` (both halves rotate together) |
+| List secrets (keys only) | `tektona secret ls [--scope all\|project\|personal\|org]` |
+| Delete a secret | `tektona secret rm <key> [--scope ...]` |
+| List egress proxy profiles | `tektona egress-proxy ls` (alias `egress`) |
+| Show a proxy profile + rules | `tektona egress-proxy show <name>` |
+| Create a proxy profile | `tektona egress-proxy apply <name> [--scope project\|org] [--default]` (`--default` is project-scope only) |
+| Add an inject rule | `tektona egress-proxy rule add <name> --host <domain> --header 'NAME=TEMPLATE'` |
+| Add an AWS signing rule | `tektona egress-proxy rule add <name> --host <domain> --aws-region <region> --aws-service <svc> --aws-secret <key>` (one rule per service) |
+| Remove an inject rule | `tektona egress-proxy rule rm <name> <rule-id>` (rule ids from `show`) |
+| Attach/switch a proxy profile on an existing sandbox | `tektona sandbox egress-proxy set <id> <profile>` |
+| Detach a sandbox's proxy profile | `tektona sandbox egress-proxy unset <id>` |
+| Delete a proxy profile | `tektona egress-proxy rm <name>` |
+
 ## Reference grammar
 
 Both `--egress-network-policy` and `--egress-proxy-profile` take a **scope

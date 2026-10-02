@@ -63,7 +63,9 @@ files, and symlinks them into your active agent's skill directory
 
 ```
 skills/
-├── tektona-cli/SKILL.md              # outside-the-sandbox CLI surface
+├── tektona-cli/
+│   ├── SKILL.md                      # outside-the-sandbox CLI: overview and rules
+│   └── references/                   # one file per area, read on demand
 ├── tektonactl/SKILL.md               # in-sandbox tool surface
 └── tektona-typescript-sdk/SKILL.md   # @tektona/sdk TypeScript client
 ```

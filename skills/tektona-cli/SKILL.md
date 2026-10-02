@@ -5,36 +5,50 @@ description: Use when the user drives Tektona from a shell, or runs `tektona` / 
 
 # Tektona CLI
 
-## Overview
+Tektona runs isolated cloud sandboxes for AI agents. A sandbox is a full
+Linux VM (Ubuntu 26.04 with systemd) that starts from a **template**.
+`tektona` drives sandboxes from outside: create, SSH, VNC, preview URLs, file
+copy, fork, pause. Inside a sandbox, `tektonactl` drives the desktop and
+processes — load the `tektonactl` skill for that. From TypeScript code, load
+`tektona-typescript-sdk` instead.
 
-`tektona` is the CLI for the Tektona agentic development platform. It manages
-remote sandboxes and provides SSH, VNC, and HTTP preview access. Inside
-a running sandbox, a second binary — `tektonactl` — drives
-the desktop and sandbox introspection.
+## What you can do, and where to read
 
-**RELATED SKILLS:** Use `tektonactl` for anything *inside* a sandbox — computer
-use (screenshot, click, type, clipboard). Reach it from
-outside with `tektona ssh <id> -- tektonactl ...`. Use
-`tektona-typescript-sdk` when the same work belongs in TypeScript code
-rather than a shell.
+| Task | Read |
+|---|---|
+| Install, authenticate, set org/project context, manage orgs, projects, roles | [references/setup.md](references/setup.md) |
+| Pick a template, build one from an image or a manifest, share with the org, tags, versions, build logs | [references/templates.md](references/templates.md) |
+| Create, wait, desktop/VNC, screenshot, fork, tags, pause/resume, lifecycle, sharing, ownership | [references/sandboxes.md](references/sandboxes.md) |
+| SSH, run commands and background processes, copy files, port forward, preview URLs | [references/files-and-processes.md](references/files-and-processes.md) |
+| Clone private repos: register a repository and a git credential | [references/git.md](references/git.md) |
+| Secrets, egress network policy (the gate), egress proxy profiles (the treatment), AWS signing | [references/egress-and-secrets.md](references/egress-and-secrets.md) |
+
+Read the reference for the task before you run commands that are not shown
+here. Every command takes `-o json` for machine-readable output and `--help`.
+
+## Quick start
+
+```sh
+tektona api-key set <KEY>                 # or TEKTONA_API_KEY
+tektona ctx set <org>/<project>           # or TEKTONA_ORG / TEKTONA_PROJECT
+ID=$(tektona sandbox create tektona/desktop -o json | jq -r .id)   # waits until running
+tektona ssh "$ID" -- uname -a             # one-shot command
+tektona sandbox process run "$ID" -d --name web -- npm start       # background process
+tektona sandbox preview "$ID" 3000 --open # share an HTTP port
+tektona vnc "$ID" --start-desktop --browser                        # see the desktop
+tektona sandbox delete "$ID" -y
+```
 
 ## Secrets where possible, everything else in ENV
-
-**This is the most important rule when wiring up a sandbox. Read it before
-reaching for `--env`.**
 
 > **Anything sensitive → a `tektona secret` + an egress-proxy rule.
 > Everything else → `--env KEY=VAL`.**
 
 An `--env` value is **visible inside the sandbox**, so agent code can read and
 leak it. A secret is injected as an HTTP header at the egress boundary and
-**never enters the sandbox**. Reserve `--env` for non-secret config — model
-names, base URLs, feature flags, `NODE_ENV` — and for a value a tool needs raw
-in-process for non-HTTP use.
-
-**Canonical example — an Anthropic API key for a coding agent.** The key is a
-header to a known host, so it goes in a secret; the model name is not sensitive,
-so it goes in `--env`:
+**never enters the sandbox**. Reserve `--env` for non-secret config (model
+names, base URLs, feature flags) and for a value a tool needs raw for non-HTTP
+use:
 
 ```sh
 # SECRET — never enters the sandbox; injected at the egress boundary
@@ -43,664 +57,45 @@ tektona egress-proxy apply team-defaults --scope project --default
 tektona egress-proxy rule add team-defaults \
   --host api.anthropic.com --header 'x-api-key=${secret:anthropic}'
 
-# ENV — non-secret config, visible in-box (the right place for these)
+# ENV — non-secret config, visible in-box
 tektona sandbox create tektona/desktop --env ANTHROPIC_MODEL=claude-sonnet-4-5
 #   NOT: --env ANTHROPIC_API_KEY=...   ← that would expose the key in the box
 ```
 
-Two controls shape outbound traffic, and they are independent. The **gate**
-(`egress-network-policy`) decides which hosts a sandbox may reach at all. The
-**treatment** (`egress-proxy` profile) credentials a request to a host the gate
-already allows — a header, HTTP Basic, or an AWS SigV4 signature. A treatment
-never widens the gate.
-
-**AWS is the exception to the header rule.** An AWS API authenticates a request
-with a SigV4 signature over that request, so no stored header reaches it. Store
-the credential as `--type aws` and let a rule sign at the boundary:
-
-```sh
-printf '%s' "$AWS_SECRET_ACCESS_KEY" | \
-  tektona secret set aws-logs --type aws --aws-access-key-id AKIA...
-tektona egress-proxy rule add team-defaults --host '*.es.amazonaws.com' \
-  --aws-region eu-central-1 --aws-service es --aws-secret aws-logs
-```
-
-**For anything beyond that — scopes, the `${secret:KEY}` grammar, AWS signing in
-full, attaching or rotating a treatment, TLS trust, or a rule that is not firing
-— read [`references/egress-and-secrets.md`](references/egress-and-secrets.md).**
-
-## Install
-
-```sh
-npm install -g @tektona/cli         # cross-platform
-brew install tektona-ai/tap/tektona # macOS
-```
-
-Check it works: `tektona version`.
-
-## Authenticate
-
-```sh
-tektona api-key set <KEY>      # writes ~/.config/tektona/api_key
-tektona api-key show
-```
-
-Override per-invocation with `--api-key` or `TEKTONA_API_KEY`. Override the
-API URL with `--api-url` or `TEKTONA_API_URL`.
-
-`tektona login` sets the API URL, key, and default org/project in one pass, but
-it **only prompts** — it takes no flags. Agents use `api-key set` and `ctx set`.
-
-## Set context (org + project)
-
-Almost every command runs in the active org/project context. Set it once:
-
-```sh
-tektona ctx set <org/project>      # e.g. acme-corp/backend (or two args: acme-corp backend)
-tektona ctx show                   # shows the resolved context AND where each value came from
-tektona ctx list                   # every org/project the key can reach
-```
-
-**Where `ctx set` writes (important when several agents run in parallel).**
-By default it writes a committable, repo-local `.tektona/config.json` at the
-**git-repo root** (discovery is bounded to the repo, never above it), so agents in
-**different repos/worktrees never clobber each other's context**. Use `--global`
-only for a machine-wide default:
-
-```sh
-tektona ctx set acme-corp/backend          # repo-local (this repo only) — the default
-tektona ctx set --global acme-corp/backend # machine-wide default in ~/.config/tektona
-```
-
-Resolution precedence (highest to lowest): `--org`/`--project` flags →
-`TEKTONA_ORG`/`TEKTONA_PROJECT` env vars → repo-local file → global config. For a
-one-off against a different project, prefer a per-call override over mutating a
-config file. `tektona ctx show` reports the winning source per field when a
-command targets the wrong place.
-
-List your projects across every org, then copy a `CONTEXT` value into `ctx set`:
-
-```sh
-tektona project ls                 # all your projects, across every org (alias: p ls)
-tektona project ls --org acme-corp # filter to one org
-tektona project ls -o json         # machine-readable
-tektona ctx set acme-corp/backend  # paste a value from the CONTEXT column
-```
-
-## Manage orgs and projects
-
-Create, update, list, and inspect organizations and projects from the CLI.
-Every command works two ways: an interactive wizard on a terminal, or a fully
-non-interactive path when inputs are supplied as flags, stdin is not a TTY, or
-`--no-input` / `-o json` is set. **Agents must take the non-interactive path** —
-pass every input as a flag so nothing is ever prompted.
-
-```sh
-tektona org ls                                   # your orgs (alias: o ls); * marks context
-tektona org get acme-corp                          # detail + members (defaults to context org)
-tektona org create --name beta-labs --display-name "Beta Labs"
-tektona org update acme-corp --default-project-role reader
-
-tektona project get web --org acme-corp           # detail + your effective role
-tektona project create reports --org acme-corp --display-name "Reports"
-tektona project update web --org acme-corp --description "New copy"
-```
-
-`update` is a read-modify-write: unspecified fields keep their current values,
-so `project update web --description X` preserves the display name. Org and
-project names match `^[a-z0-9][a-z0-9-]*[a-z0-9]$`; `tektona` is reserved (and
-`personal` for orgs). The name is fixed at creation and can't be changed on
-update.
-
-**Roles decide what a 403 means.** A project **reader** can view a shared sandbox
-but not create one. A **writer** creates and operates sandboxes, and can *use* a
-project or org secret without ever seeing its value. Project-level material —
-shared secrets and git credentials, egress network policies, container
-registries, project settings and members — needs project **admin**. Org owners
-are admin on every project automatically.
-
-## Quick reference — `tektona`
-
-| Task | Command |
-|---|---|
-| List orgs | `tektona org ls` (alias `o ls`) `[--wide] [-o json]` |
-| Show org + members | `tektona org get [<org>] [-o json]` (aliases: `show`, `info`, `details`) |
-| Create org | `tektona org create --name <slug> --display-name <label>` (alias `org new`) |
-| Update org | `tektona org update <org> [--display-name <l>] [--default-location <id>] [--default-project-role none\|reader\|writer\|admin]` |
-| List projects (all orgs) | `tektona project ls` (alias `p ls`) `[--org <slug>] [--wide] [-o json]` |
-| Show project | `tektona project get <project> --org <slug> [-o json]` (aliases: `show`, `info`, `details`) |
-| Create project | `tektona project create <name> --org <slug> --display-name <label> [--description <d>]` (alias `p new`) |
-| Update project | `tektona project update <project> --org <slug> [--display-name <l>] [--description <d>]` |
-| Switch context | `tektona ctx set <org/project>` (copy a CONTEXT value from `project ls`) |
-| Create sandbox | `tektona sandbox create <template>[:<template-tag>] [--template-version <id> --cpu N --memory N --disk N --env K=V --egress-network-policy <policy> --egress-proxy-profile <profile> --tag <sandbox-tag> ...]` (`--tag` labels the sandbox, it does not pick a template tag) |
-| Show resource limits (min, max, default) | `tektona sandbox limits [-o json]` |
-| Create + SSH in | `tektona s c tektona/desktop --ssh` |
-| Create + desktop in browser | `tektona s c tektona/desktop` then `tektona vnc <id> --start-desktop --browser` |
-| List / show templates | `tektona template ls [--scope project\|org\|system]` / `tektona template get <ref>` |
-| Template from an image | `tektona template create <name> --image <ref>` (`org/<name>` for the whole org) |
-| Build with steps | `tektona template build run -f <name>.template.tektona.yaml [--tag <tag>]` (`template init <name>` writes the file) |
-| List / move template tags | `tektona template tag ls <ref>` / `tektona template tag set <ref> <tag> <version-id>` |
-| Build status and log | `tektona template build ls [<ref>]` / `tektona template build logs <build-id> [-f]` |
-| List active (yours only — see Ownership) | `tektona sandbox ls` |
-| List all (incl. terminated) | `tektona sandbox ls --include-deleted` |
-| List with full digests + resources | `tektona sandbox ls -w` |
-| Filter by state | `tektona sandbox ls --state running` |
-| Filter by tags | `tektona sandbox ls --tag <tag> [--tag <tag> ...]` (all tags must match) |
-| Include others' shared sandboxes | `tektona sandbox ls --scope shared\|all` |
-| Search every project in the org | `tektona sandbox ls --all-projects` |
-| Share with the project | `tektona sandbox share <id> [--type use\|manage]` |
-| Make private again | `tektona sandbox unshare <id>` |
-| Hand to another member | `tektona sandbox transfer <id> <email-or-user-id>` (alias `chown`) |
-| Admin: any sandbox incl. private | `tektona admin sandbox ls\|get\|pause\|rm` `[--all-projects] [--owner <email>] [--orphaned] [--older-than 24h]` |
-| Show details | `tektona sandbox get <id>` (aliases: `info`, `show`, `details`) |
-| List listening ports | `tektona sandbox ports <id> [--json]` |
-| Wait for state | `tektona sandbox wait <id> [--state running] [--timeout 10m]` |
-| Pause | `tektona sandbox pause <id> [--mode hibernate\|suspend]` |
-| Resume | `tektona sandbox resume <id>` |
-| Reboot (orderly restart) | `tektona sandbox reboot <id> [-y]` — processes get SIGTERM; recent writes survive |
-| Reset (hard reset) | `tektona sandbox reset <id> [-y]` — like pulling the power; un-synced writes lost; use only when the sandbox is unresponsive |
-| Fork (copy the disk) | `tektona sandbox fork <id> [--mode filesystem\|full] [--tag <tag> ...\|--clear-tags]` |
-| Replace sandbox tags | `tektona sandbox tag replace <id> [--tag <tag> ...]` |
-| Add sandbox tags | `tektona sandbox tag add <id> --tag <tag> [--tag <tag> ...]` |
-| Delete | `tektona sandbox delete <id...>` / `--all` / `-y` |
-| SSH | `tektona ssh <id> [-- <command>]` |
-| One-shot exec | `tektona ssh <id> -- <command>` |
-| Print SSH command | `tektona ssh <id> --print` |
-| Port forward (sandbox → laptop) | ``eval "$(tektona ssh <id> --print)" -L 8080:localhost:3000 -N`` |
-| Port forward (laptop → sandbox) | ``eval "$(tektona ssh <id> --print)" -R 5432:localhost:5432 -N`` |
-| Upload file(s) | `tektona sandbox cp <local> <id>:/abs/path` |
-| Upload to image WORKDIR | `tektona sandbox cp <local> <id>:`  (bare `<id>:` resolves against the image's WORKDIR) |
-| Download file(s) | `tektona sandbox cp <id>:/abs/path <local>` |
-| Copy a tree (parallel) | `tektona sandbox cp -r ./dir <id>:/dst/` (default 3 workers, cap 6) |
-| Stream stdin/stdout | `tar c ./src \| tektona sandbox cp - <id>:/tmp/src.tar` / `tektona sandbox cp <id>:/path -` |
-| Run a command (waits, exits with its code) | `tektona sandbox process run <id> -- <cmd...>` (alias `s p run`) |
-| Run a shell one-liner (`&&`, pipes, globs) | `tektona sandbox process run <id> -s -- 'apt update && apt install -y nginx'` (`-s/--shell`: bash if the image has it, else sh) |
-| Start a background process | `tektona sandbox process run <id> -d --name <name> -- <cmd...>` |
-| Interactive shell (PTY) | `tektona sandbox process run <id> -t -- bash` |
-| List processes | `tektona sandbox process ls <id>` (`--autostart` for definitions) |
-| Tail logs | `tektona sandbox process logs <id> <ref> -f [-n/--tail N]` |
-| Attach / reattach | `tektona sandbox process attach <id> <ref>` |
-| Stop process | `tektona sandbox process stop <id> <ref> [--force]` |
-| Signal process | `tektona sandbox process signal <id> <ref> SIGHUP` |
-| Autostart on every boot | `tektona sandbox process run <id> -d --name <name> --autostart -- <cmd...>` / `process autostart <id> <ref> on\|off` |
-| VNC | `tektona vnc <id> [--browser] [--start-desktop]` (the desktop does not start by itself) |
-| Start desktop (needs a desktop image — see below) | `tektona sandbox desktop start <id>` |
-| Stop desktop | `tektona sandbox desktop stop <id>` |
-| Desktop status | `tektona sandbox desktop status <id>` (prints `active` or `inactive`) |
-| Screenshot to file | `tektona sandbox screenshot <id> -o out.png` (add `--open` to also open it in a viewer) |
-| Preview URL for port | `tektona sandbox preview <id> <port> [--ttl 1h] [--open]` |
-| Revoke preview | `tektona sandbox revoke-preview <id> <token>` |
-| Show lifecycle (effective + source tier) | `tektona sandbox get <id>` (lifecycle rows show each effective value and the tier that set it) |
-| Set sandbox lifecycle overrides | `tektona sandbox lifecycle <id> --auto-pause 15m --auto-pause-mode suspend --auto-resume false --auto-delete 30d` |
-| Never auto-pause (silent long job) | `tektona sandbox lifecycle <id> --auto-pause never` |
-| Show / set project lifecycle defaults | `tektona project lifecycle-defaults <project> [--org <slug>] [--auto-pause 1h --auto-resume true --auto-delete 7d]` |
-| Show egress network policies | `tektona egress-network-policy ls` (alias `np`) |
-| Inspect a egress network policy | `tektona egress-network-policy info <name>` |
-| Default egress network policy | `tektona egress-network-policy default --set <name>` |
-| Set a secret (upsert; value via stdin) | `tektona secret set <key> [--scope project\|personal\|org]` (creates, or updates the value in place) |
-| Set an AWS credential (secret key via stdin) | `tektona secret set <key> --type aws --aws-access-key-id AKIA...` (both halves rotate together) |
-| List secrets (keys only) | `tektona secret ls [--scope all\|project\|personal\|org]` |
-| Delete a secret | `tektona secret rm <key> [--scope ...]` |
-| List egress proxy profiles | `tektona egress-proxy ls` (alias `egress`) |
-| Show a proxy profile + rules | `tektona egress-proxy show <name>` |
-| Create a proxy profile | `tektona egress-proxy apply <name> [--scope project\|org] [--default]` (`--default` is project-scope only) |
-| Add an inject rule | `tektona egress-proxy rule add <name> --host <domain> --header 'NAME=TEMPLATE'` |
-| Add an AWS signing rule | `tektona egress-proxy rule add <name> --host <domain> --aws-region <region> --aws-service <svc> --aws-secret <key>` (one rule per service) |
-| Remove an inject rule | `tektona egress-proxy rule rm <name> <rule-id>` (rule ids from `show`) |
-| Attach/switch a proxy profile on an existing sandbox | `tektona sandbox egress-proxy set <id> <profile>` |
-| Detach a sandbox's proxy profile | `tektona sandbox egress-proxy unset <id>` |
-| Delete a proxy profile | `tektona egress-proxy rm <name>` |
-| List repositories | `tektona repository ls` (alias `repo`) `[--default] [-o json]` |
-| Register a repository | `tektona repository create --url <clone-url> [--name <n>] [--default-branch <b>] [--default]` |
-| Show a repository | `tektona repository get <name-url-or-id>` |
-| Change a repository (unset flags keep their value) | `tektona repository update <name-url-or-id> [--name <n>] [--url <u>] [--default-branch <b>] [--default]` |
-| Remove a repository | `tektona repository rm <name-url-or-id>` |
-| List git credentials | `tektona git-credential ls` (alias `gitcred`) `[--scope all\|project\|personal]` |
-| Create a git credential (token via stdin) | `tektona git-credential create --name <slug> --display-name <label> --forge github\|gitlab --scope project\|personal --repo <url-name-or-id>` |
-| Update a git credential (token via stdin if piped, else kept) | `tektona git-credential update <name> --scope ... [--display-name <l>] [--forge ...] [--repo <url-name-or-id>]` |
-| Delete a git credential | `tektona git-credential rm <name> --scope ...` |
-
-Add `-o json` to most commands for machine-readable output. Aliases:
-`sandbox` → `s`, `org` → `o`/`orgs`, `project` → `p`/`proj`/`projects`, `create` → `c`/`new`,
-`delete` → `rm`/`d`/`destroy`, `egress-network-policy` → `np`,
-`egress-proxy` → `egress`/`egress-proxy-profile`, `repository` → `repo`/`repos`/`repositories`, `git-credential` → `gitcred`,
-`screenshot` → `ss`, `revoke-preview` → `rp`, `process` → `proc`/`ps`/`p`.
-`ls`/`list` are interchangeable.
-
-## Templates
-
-A **template** is what a sandbox starts from: an OCI image, optional build
-steps, and the defaults a sandbox gets (CPU, memory, disk, env, user, workdir).
-`sandbox create` takes a template reference, and never an image.
-
-A **build** turns a template's image and steps into a **version**. A version
-never changes. A **tag** is a name that points at one version, and you move
-it. A reference with no tag resolves the `default` tag.
-
-| Reference | Scope | Who can create from it |
-|---|---|---|
-| `tektona/desktop`, `tektona/sandbox-base` | system | everyone; Tektona publishes them |
-| `go-dev` (same as `project/go-dev`) | project | the current project |
-| `org/go-dev` | org | every project in the organization |
-| `go-dev:stable` | — | the version that the `stable` tag points at |
-
-**Use `tektona/desktop` unless the user names another template.** Use
-`tektona/sandbox-base` only for headless work (CI, servers, batch jobs): it is
-smaller and has no desktop to start. Both are Ubuntu 26.04 and **boot with
-systemd**, so `systemctl` works and a daemon installed with `apt` keeps running:
-
-```text
-tektona/desktop         tektona/sandbox-base plus an X11 desktop and Chrome — for VNC and `tektonactl desktop`
-tektona/sandbox-base    headless: agent, CI, and server work
-```
-
-Both ship Claude Code, Codex and opencode on the `PATH`, Node 22 LTS, git,
-Python 3 with pipx, and a build toolchain, plus a `tektona` user with
-passwordless sudo. `/home/tektona/.local/bin` is on the `PATH`. A template built
-from a bare library image such as `node:24` has none of that **and no
-systemd**, so a long-running service then needs `sandbox process run
---autostart`.
-
-**From your own image to a sandbox.** `--image` exists only on the template
-commands. `sandbox create --image <ref>` fails with
-`Error: templates replace --image; use tektona sandbox create tektona/sandbox-base`:
-
-```sh
-tektona template create app --image ghcr.io/acme/app:1.0   # builds version 1, tags it `default`, waits
-tektona sandbox create app                                  # starts from the `default` tag
-```
-
-**Share a template with the organization.** Create it with the `org/` prefix.
-Every project in the org can then create from `org/app`. A project template
-cannot move to the org; build it again under `org/<name>`. Only the flags build
-an org template: a manifest (`-f`) always builds into the project, so an org
-template has no build steps. Put the packages in the image itself instead.
-
-```sh
-tektona template create org/app --image ghcr.io/acme/app:1.0
-```
-
-**Add build steps** (packages, config) with a manifest. Steps need a manifest;
-the flags build a version with no steps:
-
-```sh
-tektona template init app -i ghcr.io/acme/app:1.0   # writes ./app.template.tektona.yaml
-tektona template build run -f app.template.tektona.yaml --tag default
-```
-
-```yaml
-spec:
-  build:
-    image: ghcr.io/acme/app:1.0
-    steps:
-      - name: install tools
-        run: |
-          apt-get update
-          apt-get install -y ripgrep
-```
-
-`metadata.name` in the file names the template. Do not also pass a name on the
-command line. The org and the project come from your CLI context.
-
-**Tags and versions.** `template create` tags its first version `default`.
-`template build run` moves **no tag** unless you pass `--tag`. A build without
-`--tag` is reached only by `--template-version <id>`, and a new template built
-that way has no `default` tag, so `sandbox create <name>` fails with
-`template tag "project/<name>:default" not found`.
-
-```sh
-tektona template build run app --image ghcr.io/acme/app:1.1 --tag default   # rebuild and promote
-tektona template version ls app                                            # version ids, newest first, with their tags
-tektona template tag ls app                                                # each tag and the version it points at
-tektona template tag set app stable <version-id>                           # move a tag, no build (also a rollback)
-tektona sandbox create app:stable                                          # a tag you control
-tektona sandbox create app --template-version <version-id>                 # one exact version
-```
-
-`<version-id>` is the 26-character id that `template version ls` prints.
-
-**A build failed.** `template create` and `template build run` print each step
-and its log, and exit non-zero on failure. The last lines name the failed step
-and its exit code. To read a build later:
-
-```sh
-tektona template build ls app            # build ids and status
-tektona template build logs <build-id>   # steps and log; -f follows a running build, --tail N
-tektona template build get <build-id>    # status and the error line
-```
-
-A build accepts any image reference, a floating tag included. It resolves the
-reference to a digest and records that digest on the version. Name the tag the
-user asked for. For "the latest X" with no tag, find the highest version tag on
-the registry (`crane ls <repo>`).
-
-A **private** image needs a registry credential, stored per project in the
-console (Project settings → Registries) or through the API. There is no
-`tektona registry` command. A build that fails on the pull usually has a
-registry endpoint or namespace mismatch.
-
-**List and inspect:** `tektona template ls [--scope project|org|system]` lists
-every template you can create from, the `tektona/` ones included.
-`tektona template get <ref>` shows one.
-
-**`tektona sandbox desktop start` and every `tektonactl desktop` command need an
-image that ships a desktop.** That is `tektona/desktop`, a template built from
-`ghcr.io/tektona-ai/desktop-x11`, or your own image with an executable
-`/etc/tektona/desktop-session` that starts a window manager on `DISPLAY=:0`.
-`desktop start` errors on any other image, `tektona/sandbox-base` included.
-
-`tektona vnc` and `tektona sandbox screenshot` need no desktop image. They read
-the sandbox screen, which shows the text console when no desktop runs.
-
-**The desktop does not start by itself**, also on `tektona/desktop`.
-`sandbox create --vnc` does not start it either. Pass `--start-desktop` to
-`tektona vnc`, or run `tektona sandbox desktop start <id>` first. A console
-view on a desktop template means that nobody started the desktop.
-
-## Common workflows
-
-**Create a project for an agent (non-interactive):**
-```sh
-tektona project create reports --org acme-corp --display-name "Reports" \
-  --description "Scheduled report generation"
-```
-Pass every input as a flag — `--org`, `--display-name`, and `--name` (or the
-positional name) — so the command never prompts. Add `-o json` to capture the
-returned project. The same flag-only form works for `tektona org create`.
-
-**Spin up a fresh dev box and drop into it:**
-```sh
-tektona sandbox create tektona/desktop --cpu 4 --memory 4 --ssh
-```
-Use `--egress-network-policy tektona/open` (alias `--egress-policy`) if you need
-unrestricted egress (default policy restricts egress).
-
-**Spin up a desktop sandbox and open it in the browser:**
-```sh
-ID=$(tektona sandbox create tektona/desktop -o json | jq -r .id)
-tektona vnc "$ID" --start-desktop --browser
-```
-
-**Wait for a sandbox to be ready:**
-`create` waits until the sandbox runs, for up to 10 minutes, and then returns.
-After a create that stopped early, a resume or a reboot, use
-`tektona sandbox wait`:
-```sh
-ID=$(tektona sandbox create tektona/desktop -o json | jq -r .id)
-tektona sandbox wait "$ID"                                # default: state=running, timeout=10m
-tektona sandbox wait "$ID" --state running --timeout 3m
-tektona sandbox wait "$ID" --state paused                 # matches hibernated or suspended
-tektona sandbox wait "$ID" --state hibernated             # exact pause mode
-```
-There is no literal `paused` state: `pause` settles into `hibernated`
-(default) or `suspended`. `--state paused` matches either, so
-`pause && wait --state paused` works regardless of `--mode`.
-`wait` exits 0 on success, non-zero on timeout, and **fails fast** if
-the sandbox enters a terminal state (`error`, `deleted`, `deleting`)
-while waiting for a non-terminal target — so the agent doesn't hang on
-broken images.
-
-**Run a server in a sandbox and share it** (headless, so `tektona/sandbox-base`):
-```sh
-ID=$(tektona s c tektona/sandbox-base -o json | jq -r .id)
-tektona sandbox process run "$ID" -d --name web --cwd /workspace -- npm start
-tektona sandbox preview "$ID" 3000 --ttl 4h --open
-```
-Prefer `sandbox process run -d` over `ssh -- 'npm start &'`: the process is
-sandbox-owned (survives the SSH session), named, tailable
-(`process logs "$ID" web -f`), and stoppable (`process stop "$ID" web`).
-Token-bearing URL by default. Pass `--public` at create time to get a
-durable token-less URL via `sandbox preview` instead.
-
-**Run a long, network-silent job without it getting auto-paused:**
-```sh
-tektona sandbox process run "$ID" --prevent-auto-pause -- ./train.sh   # pins the sandbox awake while it runs
-tektona sandbox process run "$ID" -d --name build --autostart -- make   # relaunched on every boot
-```
-`--prevent-auto-pause` keeps the sandbox active for the process's lifetime (an
-alternative to `--auto-pause never` scoped to one process). `--on-hibernate
-preserve|stop|restart_after_resume` controls what happens to a process across a
-hibernate pause. `--timeout` takes a Go duration (e.g. `30s`, `5m`, `1h`; `0` =
-no timeout; sub-second values round up to the 1s minimum). Give background processes a speaking `--name` that fits the
-purpose, e.g. `run-frontend` or `build-backend`; if you omit it, a random
-memorable name is generated.
-
-**Clone a git repo inside a sandbox:**
-```sh
-tektona ssh "$ID" -- 'git clone https://gitlab.com/group/repo.git'
-```
-Always clone over **HTTPS**, never SSH (`git@…` / `ssh://` URLs do not
-authenticate). Private clones **authenticate automatically** — Tektona injects
-the project's (or your personal) stored git credential for the repo at the egress
-boundary, so the token never enters the sandbox and you pass nothing in the URL.
-If a clone fails with an auth error, no credential covers that repo. Wiring one up
-is **two steps, in order** — register the repo in the project, then add a
-credential that unlocks it:
-
-```sh
-# 1. register the repo (once per project); --name defaults to the URL's last segment
-tektona repository create --url https://github.com/acme/api
-
-# 2. add a credential that unlocks it (token read from stdin)
-gh auth token | tektona git-credential create --name acme-bot \
-  --display-name "Acme bot" --forge github --scope project --repo https://github.com/acme/api
-```
-
-`git-credential create --repo` only *references* a repo already registered in the
-project — it can't create one. If it errors `no repository matches …`, you skipped
-step 1: run `tektona repository create --url <clone-url>` first, then retry.
-List what's registered with `tektona repository ls`.
-
-Fix a registered repo with `tektona repository update` — never `rm` + `create`,
-which strips the repo from every credential that covers it. The default repo set
-is append-only: `--default` adds a repo to it, and only `rm` takes one out.
-
-Only the name is unique in a project, so two repos can hold the same URL. If a
-command errors `N repositories match …`, pass the repo's id (from
-`tektona repository ls -o json`) instead of the URL.
-
-A credential has an immutable `--name` (the handle it's addressed by) plus a
-`--display-name` label; the token is read from stdin. Rotate it live with
-`tektona git-credential update <name> --scope ...` (token from stdin if piped,
-else kept) — the change applies to running sandboxes and new ones. Only deviate
-from HTTPS/auto-auth if the user explicitly asks.
-
-**Forward a sandbox port to your laptop (or vice versa):**
-```sh
-# Sandbox port 3000 → laptop port 8080. -N keeps the tunnel up without a shell.
-eval "$(tektona ssh <id> --print)" -L 8080:localhost:3000 -N
-
-# Laptop port 5432 (e.g. local Postgres) reachable inside the sandbox at localhost:5432.
-eval "$(tektona ssh <id> --print)" -R 5432:localhost:5432 -N
-```
-`tektona ssh --print` emits the resolved `ssh` invocation; `eval` runs it
-with extra flags appended. Use `-L` to pull a sandbox port to your
-machine, `-R` to push a local service into the sandbox. Run in the
-background with `&` if you need the shell back. For HTTP-only ports a
-shareable URL is usually simpler — see `tektona sandbox preview`.
-
-**Fork, branch, throw away:**
-```sh
-tektona sandbox fork <id> --mode filesystem --ssh   # cheap branch
-tektona sandbox fork <id> --mode full --ssh         # includes RAM
-tektona sandbox delete <fork-id> -y
-```
-
-**Set sandbox tags:**
-
-```sh
-tektona sandbox tag replace <id> --tag review --tag frontend
-tektona sandbox tag add <id> --tag urgent
-tektona sandbox tag replace <id>       # clear all tags
-tektona sandbox fork <id> --tag review # replace tags on the fork
-tektona sandbox fork <id>               # inherit the parent tags
-tektona sandbox fork <id> --clear-tags  # create an untagged fork
-```
-
-Tags are unique strings with a maximum of 20 items. Each tag has 1 to 100
-ASCII letters, numbers, `_`, `.`, `-`, or `/`. Tags cannot start with `tektona/`.
-Use `--tag` more than once on create, fork, list, replace, and add. `add` keeps
-existing tags. `replace` sets the complete list. `--tag` and `--clear-tags`
-cannot be used together.
-
-**Move files in and out:**
-```sh
-# upload a file to an absolute path
-tektona sandbox cp ./report.pdf <id>:/tmp/
-
-# upload to the image's WORKDIR (bare host: shorthand)
-tektona sandbox cp ./report.pdf <id>:
-
-# download a remote file to CWD
-tektona sandbox cp <id>:/var/log/app.log ./
-
-# recursive tree copy, parallel by default (3 workers)
-tektona sandbox cp -r ./build/ <id>:/srv/app/
-
-# bigger trees: bump workers (capped at 6; higher values are clamped with a warning)
-tektona sandbox cp --workers=6 -r ./large-dataset/ <id>:/data/
-```
-Exit codes: `0` clean, `1` per-file errors, `2` transport drop, `130`
-interrupted. Use `--fail-fast` to abort the run on the first per-file
-error. For scripting, pipe `--output json` to get one structured event
-per line.
-
-**Control when a sandbox pauses, wakes, and is deleted (lifecycle):**
-
-By default a sandbox **auto-pauses (hibernates) after 15 minutes without
-boundary-crossing traffic**, **wakes automatically on the next access**, and is
-**never auto-deleted**. The idle timer only sees traffic that *crosses the sandbox
-boundary* — SSH/VNC/exec sessions, preview HTTP, agent requests, outbound network
-transfers. **Silent in-VM compute — a build, a training run, a local batch job —
-looks idle**, so the sandbox hibernates mid-job. Hibernate preserves RAM, so the
-job's processes survive and continue on resume, but wall-clock time stalls while
-it's paused. Before launching a long, network-silent job, disable auto-pause:
-
-```sh
-tektona sandbox create tektona/sandbox-base --auto-pause never      # at create time; a batch job needs no desktop
-tektona sandbox lifecycle <id> --auto-pause never             # or on an existing sandbox
-```
-
-Each knob is **tri-state**: a duration (`15m`, `2h`, `30d`), `never` (disable —
-interval knobs only), or `inherit` (fall through **sandbox override → project
-default → platform default**). Set any subset at create or later:
-
-```sh
-tektona sandbox create tektona/desktop \
-  --auto-pause 2h --auto-pause-mode suspend --auto-resume false --auto-delete 7d
-tektona sandbox lifecycle <id> --auto-pause 30m --auto-delete 30d
-```
-
-- `--auto-pause-mode` is `hibernate` (default; preserves RAM, sub-second resume)
-  or `suspend` (disk only, cheaper to store, cold-boots on resume).
-- `--auto-resume false` keeps a paused sandbox paused until you resume it
-  explicitly; with the default (`true`) any access resumes it.
-- `--auto-delete` applies **only to a paused sandbox**, and the clock starts at
-  the pause. A running sandbox is never auto-deleted, however old it is. Resume
-  clears the clock, so the next pause starts the full interval again. Read
-  `--auto-delete 7d` as "delete 7 days after it pauses", not "7 days after
-  creation".
-
-**Viewing:** `tektona sandbox lifecycle <id>` with no flags now **errors** — it's
-setter-only. Read effective values with `tektona sandbox get <id>`, whose
-lifecycle rows show each value and the tier (own / project / platform) that
-supplied it.
-
-**Project-wide defaults** apply to every sandbox that doesn't override the knob
-itself. With no flags the command prints the defaults; with flags it updates the ones you pass (omitted flags keep their value):
-
-```sh
-tektona project lifecycle-defaults <project> --org <slug>              # show
-tektona project lifecycle-defaults <project> --auto-pause 1h --auto-delete 7d
-tektona project lifecycle-defaults <project> --auto-delete inherit     # clear one default
-```
-
-**Waking is automatic:** you do NOT need to resume a hibernated sandbox before
-`tektona ssh`, a preview URL, or an agent request — the access resumes it and then
-serves the request. Expect a few seconds' extra latency on first contact with a
-paused sandbox (a warm hibernate resume is typically sub-second).
-
-## Ownership and visibility
-
-A sandbox belongs to one user and is **private by default**. `tektona sandbox ls`
-defaults to `--scope mine`, so **it lists only your own sandboxes** — a
-teammate's sandbox is absent from that output even when it is running and you
-have every right to use it. Read an unexpectedly empty list as a scope question
-before you conclude the sandbox is gone:
-
-```sh
-tektona sandbox ls --scope shared      # sandboxes others shared with you
-tektona sandbox ls --scope all         # everything you can access
-tektona sandbox ls --all-projects      # every project in the org (still --scope mine unless you widen it)
-```
-
-`--scope` chooses **whose**, `--all-projects` chooses **which projects**. They
-are independent, so `--all-projects` alone still shows only yours.
-
-The owner (or a project/org admin) shares it. `--type use` lets project members
-operate it; `--type manage` also lets them delete it. A `manage` holder still
-cannot reshare or transfer. Sharing exposes the sandbox **screen**, so anyone who
-can observe it can screenshot the desktop — keep a sandbox private while secrets
-are on screen.
-
-`tektona sandbox transfer` moves ownership to a project **writer or higher**, and
-it **revokes outstanding SSH, VNC, and preview tokens**. Open sessions stop, and
-the new owner re-establishes them.
-
-To reach another member's *private* sandbox you need the admin surface, which
-requires project-admin (or org-owner for `--all-projects`) and returns 403
-otherwise:
-
-```sh
-tektona admin sandbox ls --orphaned --older-than 24h
-tektona admin sandbox rm <id> --yes
-```
-
-## Inside the sandbox: `tektonactl`
-
-Once SSHed in, `tektonactl` is on `PATH` and drives the desktop and
-sandbox introspection. From outside the sandbox, wrap it:
-
-```sh
-tektona ssh <id> -- tektonactl info
-tektona ssh <id> -- tektonactl desktop screenshot -o /tmp/s.png
-```
-
-For the full command surface — `desktop` (screenshot, click, type,
-clipboard, windows) — load the `tektonactl` skill.
+AWS, rule scopes, TLS trust and a rule that does not fire:
+[references/egress-and-secrets.md](references/egress-and-secrets.md).
 
 ## Rules that bite
 
-- **Set the context first.** Run `tektona ctx set <org/project>` once, or pass
-  `--org`/`--project` per call. Most "not found" errors are a wrong context, not
-  a missing resource — so read a "not found" as a context question first.
-- **Open the gate before you expect egress.** The default gate is restrictive.
-  Pass `--egress-network-policy tektona/open` at create (`--egress-policy` is the
-  alias), or run `tektona egress-network-policy ls` to find one that allows what
-  you need.
-- **Address a sandbox by its full 26-character ULID.** A prefix such as
-  `01JQ:/path` is rejected. Copy the whole id from `tektona sandbox ls`.
-- **Pick one preview model and stay in it.** `--public` at create time gives
-  durable canonical URLs. `sandbox preview` without `--public` mints a
-  bearer-token URL (default 12h, max 24h).
-- **Move files with `tektona sandbox cp`.** It goes through the same brokered
-  access as `tektona ssh`, supports the bare `<id>:` WORKDIR shorthand, and
-  parallelises by default. Legacy `scp -O` (pre-OpenSSH-9.0) is unsupported by
-  the access gateway.
-- **Edit files by pushing them in.** `tektona sandbox cp`, or
-  `tektona ssh -- cat/sed/tee`, beats driving an interactive editor over SSH.
-- **Read the limits before you ask for a large shape.** The CPU, memory and
-  disk maximum is set per installation. Run `tektona sandbox limits` before a
-  create, a resize or a template build with `--cpu`, `--memory`, `--disk` or
-  `spec.build.resources` above 2 cores, 2 GiB or 10 GiB. A value outside the
-  limit is refused, not reduced. A new request needs at least 5 GiB of disk.
-- **Set `--auto-resume false` where you mean it.** `--no-auto-resume` is a
-  deprecated hidden alias.
+- **Use `tektona/desktop` unless the user names another template.** Use
+  `tektona/sandbox-base` for headless work (CI, servers, batch jobs). A
+  sandbox starts from a template, never an image: to use an image, run
+  `tektona template create <name> --image <ref>` first.
+- **The desktop does not start by itself**, also on `tektona/desktop`. Use
+  `tektona vnc <id> --start-desktop` or `tektona sandbox desktop start <id>`.
+- **Set the context first.** Most "not found" errors are a wrong org or
+  project, not a missing resource. `tektona ctx show` names the source of each
+  value.
+- **Pass every input as a flag.** Agents take the non-interactive path, so
+  nothing prompts. `tektona login` only prompts; use `api-key set` and
+  `ctx set`.
+- **Open the gate before you expect egress.** The default egress network
+  policy is restrictive. Pass `--egress-network-policy tektona/open` at create,
+  or find a policy with `tektona egress-network-policy ls`.
+- **Address a sandbox by its full 26-character ULID.** A prefix is rejected.
+- **`sandbox ls` shows only your own sandboxes.** Add `--scope all` before you
+  conclude that a sandbox is gone.
+- **Silent compute looks idle.** A sandbox hibernates after 15 minutes without
+  traffic that crosses its boundary. Before a long, network-silent job, pass
+  `--auto-pause never` or run the job with `process run --prevent-auto-pause`.
+- **Move files with `tektona sandbox cp`**, not `scp -O` and not an editor
+  over SSH.
+- **Read `tektona sandbox limits` before you ask for more than** 2 cores,
+  2 GiB or 10 GiB. A value outside the limit is refused, not reduced.
 
 ## When NOT to use this skill
 
 - Building or modifying the Tektona platform itself (control plane, runner,
-  proto definitions). That's repository code, not CLI usage.
-- Programmatic access from production services — use `@tektona/sdk` (see the
-  `tektona-typescript-sdk` skill) or the platform HTTP API, instead of
-  shelling out to `tektona`.
+  proto definitions). That is repository code, not CLI usage.
+- Programmatic access from production services — use `@tektona/sdk` (the
+  `tektona-typescript-sdk` skill) or the platform HTTP API.
