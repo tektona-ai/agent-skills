@@ -68,12 +68,11 @@ tektona sandbox create app                                  # starts from the `d
 
 **Share a template with the organization.** Create it with the `org/` prefix.
 Every project in the org can then create from `org/app`. A project template
-cannot move to the org; build it again under `org/<name>`. Only the flags build
-an org template: a manifest (`-f`) always builds into the project, so an org
-template has no build steps. Put the packages in the image itself instead.
+cannot move to the org; build it again under `org/<name>`.
 
 ```sh
 tektona template create org/app --image ghcr.io/acme/app:1.0
+tektona template build run org/app -f app.template.tektona.yaml --tag default   # org template with build steps
 ```
 
 **Add build steps** (packages, config) with a manifest. Steps need a manifest;
@@ -95,8 +94,11 @@ spec:
           apt-get install -y ripgrep
 ```
 
-`metadata.name` in the file names the template. Do not also pass a name on the
-command line. The org and the project come from your CLI context.
+`metadata.name` in the file names the template, and a manifest alone builds the
+project template. To build the org template, pass its reference before `-f`:
+`tektona template build run org/app -f app.template.tektona.yaml`. The name in
+the reference must equal `metadata.name`. The same holds for `template create`
+and `template update`. The org and the project come from your CLI context.
 
 **Tags and versions.** `template create` tags its first version `default`.
 `template build run` moves **no tag** unless you pass `--tag`. A build without
