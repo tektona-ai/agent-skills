@@ -1,6 +1,6 @@
 ---
 name: tektona-typescript-sdk
-description: Use when Tektona is driven from TypeScript or JavaScript code with the `@tektona/sdk` package, rather than from a shell. Covers the `Tektona` client and its scope, sandboxes created from code, processes and their streamed output, preview URLs, SSH and VNC access tokens, secrets, egress network policies, pagination, and typed errors. For the `tektona` command line, use the `tektona-cli` skill instead.
+description: Use when Tektona is driven from TypeScript or JavaScript code with the `@tektona/sdk` package, rather than from a shell. Covers the `Tektona` client and its scope, sandboxes created from code, sandbox templates (create, build, logs, tags, versions, org and platform references), processes and their streamed output, preview URLs, SSH and VNC access tokens, secrets, egress network policies, pagination, and typed errors. For the `tektona` command line, use the `tektona-cli` skill instead.
 ---
 
 # Tektona TypeScript SDK
@@ -147,6 +147,10 @@ Three asymmetries bite:
 |---|---|
 | Create a sandbox | `tek.sandbox.create({ template, resources, env, egress_network_policy })` |
 | Create with a request timeout | `tek.sandbox.create(body, { timeoutMs: 120_000 })` |
+| Template: create / build / poll | `tek.template.create({ metadata: { name } })` / `tek.template.build({ template, build: { image, steps }, tag })` / `tek.template.getBuild(id)` |
+| Template: read / list | `tek.template.get('my-app' \| 'org/my-app' \| 'tektona/desktop')` / `tek.template.list({ scope: 'org' })` |
+| Template: logs, tags, versions | `tek.template.buildLogs(buildId)` / `listTags(ref)` / `listVersions(ref)` |
+| Template: rename or delete | `tek.template.update(ref, { display_name })` / `tek.template.delete(ref)` (refused while a sandbox uses it) |
 | Get one | `tek.sandbox.get(id)` |
 | List (one page) | `tek.sandbox.list({ limit: 50, state: ['running'] })` |
 | List everything | `for await (const sb of tek.sandbox.listAll()) …` |
@@ -263,15 +267,29 @@ tektona/sandbox-base    headless: agent, CI, and server work
 Both ship Claude Code, Codex and opencode on the `PATH`, Node 22 LTS, git,
 Python 3 with pipx, and a build toolchain.
 
-To start from an OCI image of your own, build a template from it first. The
-`generated` namespace covers templates, versions, tags and builds. The shortest
-path from a shell is:
+To start from an OCI image of your own, build a template from it first with
+`tek.template`. `create` makes an empty template; `build` makes a version from
+an image and optional steps, and returns when the build is queued:
 
-```sh
-tektona template create my-app --image ghcr.io/acme/my-app:1.4.0
+```ts
+await tek.template.create({ metadata: { name: 'my-app' } })
+let build = await tek.template.build({
+  template: 'my-app',
+  build: { image: 'ghcr.io/acme/my-app:1.4.0', steps: [{ name: 'tools', run: 'apt-get install -y ripgrep' }] },
+  tag: 'default',            // the tag that moves when the build succeeds
+})
+while (!['succeeded', 'failed', 'cancelled'].includes(build.status)) {
+  await new Promise((r) => setTimeout(r, 5000))
+  build = await tek.template.getBuild(build.id)
+}
+const sandbox = await tek.sandbox.create({ template: 'my-app' })
 ```
 
-Then name `my-app` in the create body. A **private** image needs a registry
+A build without `tag` moves no tag; reach its version with `my-app:<version-id>`.
+For an org template, pass `{ scope: 'org' }` to `create` and `build`, and name it
+`org/my-app` everywhere else. Every call that takes a template name also takes a
+reference: `tek.template.get('org/my-app')`, `tek.template.get('tektona/desktop')`.
+`tektona/` templates are read-only. A **private** image needs a registry
 credential — `tek.registry.create(body)`, with `{ dryRun: true }` to test the
 connection without saving. A build that fails on the pull usually has a registry
 endpoint or namespace mismatch.
@@ -280,8 +298,8 @@ endpoint or namespace mismatch.
 
 **Create a sandbox and be sure it is running.** `create` sends `wait=true`, so it
 blocks server-side for up to 30 seconds and normally returns a `running`
-sandbox. It is **not guaranteed**: a slow image build returns earlier in the
-`scheduling` → `building_image` → `running` sequence. There is no `wait()`
+sandbox. It is **not guaranteed**: a slow start returns the sandbox before
+`running`. There is no `wait()`
 helper — poll `get`:
 
 ```ts
