@@ -37,7 +37,7 @@ a treatment that injects your key there.
 | List egress proxy profiles | `tektona egress-proxy ls` (alias `egress`) |
 | Show a proxy profile + rules | `tektona egress-proxy show <name>` |
 | Create a proxy profile | `tektona egress-proxy apply <name> [--scope project\|org] [--default]` (`--default` is project-scope only) |
-| Add an inject rule | `tektona egress-proxy rule add <name> --host <domain> --header 'NAME=TEMPLATE'` |
+| Add an inject rule | `tektona egress-proxy rule add <name> --host <domain> --header 'NAME=TEMPLATE' [--port <port>]...` (default port 443) |
 | Add an AWS signing rule | `tektona egress-proxy rule add <name> --host <domain> --aws-region <region> --aws-service <svc> --aws-secret <key>` (one rule per service) |
 | Remove an inject rule | `tektona egress-proxy rule rm <name> <rule-id>` (rule ids from `show`) |
 | Attach/switch a proxy profile on an existing sandbox | `tektona sandbox egress-proxy set <id> <profile>` |
@@ -96,6 +96,22 @@ tektona egress-proxy rm team-defaults
 `--header 'NAME=TEMPLATE'`; a template references a secret as `${secret:KEY}`.
 The value is resolved just-in-time at the proxy and **never enters the sandbox**.
 Optional `--path <prefix>` scopes a rule to a path prefix.
+
+A rule injects on port 443 by default. For an HTTPS service on another port,
+list **every** port with the repeatable `--port`. A rule with only `--port 7443`
+no longer injects on 443, so add `--port 443` too when the host serves both:
+
+```sh
+tektona egress-proxy rule add team-defaults \
+  --host registry.corp.example --port 443 --port 7443 \
+  --header 'Authorization=Bearer ${secret:registry}'
+```
+
+`--port` works on every rule, AWS signing rules too. Injection needs TLS: the
+API refuses port 80, so a secret never goes over plain HTTP. It also refuses
+25, 53, 465, 587 and 6667, because sandbox traffic on those ports never reaches
+the proxy. `show` lists the ports of each rule. HTTP/3 on a port other than 443
+carries no credential, so turn HTTP/3 off for such a host.
 
 A rule **overwrites** a header the sandbox already set. Put a placeholder in the
 sandbox's own config and keep the real value in the secret.
