@@ -195,11 +195,11 @@ Three asymmetries bite:
 | Repositories | `tek.repository.list()` / `.create({ url, name })` / `.update()` / `.delete()` |
 | Git credentials | `tek.gitCredential.list()` / `.create(body)` / `.update(id, body, { scope })` / `.delete(id, { scope })` |
 | Registries | `tek.registry.list()` / `.get(name)` / `.create(body, { dryRun: true })` / `.update()` / `.delete()` |
-| Locations | `tek.location.list()` |
+| Regions | `tek.region.list()` |
 
 **Most `list()` calls return one `Page<T>`** — `{ items, hasMore, nextCursor,
 totalCount }` — and pair with a `listAll()` async iterator that walks the pages.
-Four return a **plain array** and have no `listAll`: `tek.location.list()`,
+Four return a **plain array** and have no `listAll`: `tek.region.list()`,
 `sandbox.process.list()`, `sandbox.listPorts()` and
 `sandbox.listEgressInjectionRules()`. `tek.egressNetworkPolicy.listSystem()`
 returns `{ items, system_denies }`, which is not a `Page` either. Reading

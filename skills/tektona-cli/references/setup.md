@@ -17,7 +17,7 @@ Read this to install the CLI, authenticate, pick the org and project, or manage 
 | List orgs | `tektona org ls` (alias `o ls`) `[--wide] [-o json]` |
 | Show org + members | `tektona org get [<org>] [-o json]` (aliases: `show`, `info`, `details`) |
 | Create org | `tektona org create --name <slug> --display-name <label>` (alias `org new`) |
-| Update org | `tektona org update <org> [--display-name <l>] [--default-location <id>] [--default-project-role none\|reader\|writer\|admin]` |
+| Update org | `tektona org update <org> [--display-name <l>] [--default-region <id>] [--default-project-role none\|reader\|writer\|admin]` |
 | List projects (all orgs) | `tektona project ls` (alias `p ls`) `[--org <slug>] [--wide] [-o json]` |
 | Show project | `tektona project get <project> --org <slug> [-o json]` (aliases: `show`, `info`, `details`) |
 | Create project | `tektona project create <name> --org <slug> --display-name <label> [--description <d>]` (alias `p new`) |
