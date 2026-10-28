@@ -59,7 +59,7 @@ Read this to create, wait for, view, fork, tag, pause, resume or delete a sandbo
 maximum is set per installation. Run `tektona sandbox limits` before a create,
 a resize or a template build with `--cpu`, `--memory`, `--disk` or
 `spec.build.resources` above 2 cores, 2 GiB or 10 GiB. A value outside the
-limit is refused, not reduced. A new request needs at least 5 GiB of disk.
+limit is refused, not reduced. A new request needs at least 10 GiB of disk.
 
 **Spin up a fresh dev box and drop into it:**
 ```sh
