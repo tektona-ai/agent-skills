@@ -184,7 +184,8 @@ Three asymmetries bite:
 | Address a process later | `sandbox.process.getByName('dev-server')` / `.getById(ulid)` |
 | List processes | `sandbox.process.list({ autostart: true })` |
 | Toggle autostart | `handle.setAutostart(false)` / `sandbox.process.setAutostart(ref, false)` |
-| Secrets | `tek.secret.list()` / `.create(body)` / `.update(id, body)` / `.delete(id)` |
+| Secrets | `tek.secret.list({ folder, q, key })` / `.create(body)` / `.update(id, body)` / `.delete(id)` |
+| Secret folders | `list()` returns `Page<SecretListEntry>`: `{ kind: 'folder' \| 'secret', name, secret? }`, folders first. `entry.secret` holds the `Secret`. `folder: 'payments/live'` lists one level; `q` searches keys at every depth; `key` finds one exact key |
 | Egress network policies | `tek.egressNetworkPolicy.list()` / `.create()` / `.get(name)` / `.update()` / `.delete()` |
 | Org-scoped policies | `tek.egressNetworkPolicy.listOrgScoped()` and the other `*OrgScoped` methods |
 | System policies (read-only) | `tek.egressNetworkPolicy.listSystem()` — see the `getSystem` warning below |

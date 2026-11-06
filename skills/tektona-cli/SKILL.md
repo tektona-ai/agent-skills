@@ -62,7 +62,7 @@ tektona sandbox create tektona/desktop --env ANTHROPIC_MODEL=claude-sonnet-4-5
 #   NOT: --env ANTHROPIC_API_KEY=...   ← that would expose the key in the box
 ```
 
-AWS, rule scopes, TLS trust and a rule that does not fire:
+Secret folders, AWS, rule scopes, TLS trust and a rule that does not fire:
 [references/egress-and-secrets.md](references/egress-and-secrets.md).
 
 ## Rules that bite

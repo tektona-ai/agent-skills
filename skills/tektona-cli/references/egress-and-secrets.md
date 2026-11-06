@@ -32,8 +32,8 @@ a treatment that injects your key there.
 | Default egress network policy | `tektona egress-network-policy default --set <name>` |
 | Set a secret (upsert; value via stdin) | `tektona secret set <key> [--scope project\|personal\|org]` (creates, or updates the value in place) |
 | Set an AWS credential (secret key via stdin) | `tektona secret set <key> --type aws --aws-access-key-id AKIA...` (both halves rotate together) |
-| List secrets (keys only) | `tektona secret ls [--scope all\|project\|personal\|org]` |
-| Delete a secret | `tektona secret rm <key> [--scope ...]` |
+| List secrets (keys only) | `tektona secret ls [folder] [--query TEXT] [--scope all\|project\|personal\|org]` (one folder level; `--query` searches every depth) |
+| Delete a secret | `tektona secret rm <full-key> [--scope ...]` |
 | List egress proxy profiles | `tektona egress-proxy ls` (alias `egress`) |
 | Show a proxy profile + rules | `tektona egress-proxy show <name>` |
 | Create a proxy profile | `tektona egress-proxy apply <name> [--scope project\|org] [--default]` (`--default` is project-scope only) |
@@ -66,10 +66,19 @@ Stored material referenced by key, never echoed back:
 tektona secret set anthropic <<<"$KEY"   # upsert from STDIN; default --scope project
 tektona secret set my-tok --scope personal <<<"$TOK"   # only your sandboxes
 tektona secret set org-key --scope org   <<<"$KEY"     # shared across the org
-tektona secret ls                        # KEY / SCOPE / TYPE — values are NEVER shown
+tektona secret set payments/live/api-key <<<"$KEY"   # a key in the folder payments/live
+tektona secret ls                        # NAME / TYPE / SCOPE / UPDATED — values are NEVER shown
+tektona secret ls payments/live          # one folder level; a folder prints as name/
+tektona secret ls --query live           # every key containing "live", any depth, full keys
 tektona secret ls --scope personal       # filter: all|project|personal|org
 tektona secret rm anthropic              # default --scope project
+tektona secret rm payments/live/api-key  # set and rm always take the full key
 ```
+
+A `/` in a key names a folder: segments of `[a-z0-9][a-z0-9_-]*`, at most 256
+characters in all. Folders are implicit — a folder exists while a secret lies in
+it — and there is no folder rename or delete. A reference names the full key:
+`${secret:payments/live/api-key}` or `${secret:project:payments/live/api-key}`.
 
 `set` is an upsert: a new key is created, an existing one has its value rotated
 in place, live on running sandboxes within seconds and with no recreate.
