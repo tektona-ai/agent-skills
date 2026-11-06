@@ -77,7 +77,8 @@ tektona secret rm payments/live/api-key  # set and rm always take the full key
 
 A `/` in a key names a folder: segments of `[a-z0-9][a-z0-9_-]*`, at most 256
 characters in all. Folders are implicit — a folder exists while a secret lies in
-it — and there is no folder rename or delete. A reference names the full key:
+it — and there is no folder rename or delete. To move a secret, set the new key,
+change every rule that names the old key, then `rm` the old one. A reference names the full key:
 `${secret:payments/live/api-key}` or `${secret:project:payments/live/api-key}`.
 
 `set` is an upsert: a new key is created, an existing one has its value rotated
