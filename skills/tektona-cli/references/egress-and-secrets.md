@@ -32,6 +32,7 @@ a treatment that injects your key there.
 | Default egress network policy | `tektona egress-network-policy default --set <name>` |
 | Set a secret (upsert; value via stdin) | `tektona secret set <key> [--scope project\|personal\|org]` (creates, or updates the value in place) |
 | Set an AWS credential (secret key via stdin) | `tektona secret set <key> --type aws --aws-access-key-id AKIA...` (both halves rotate together) |
+| Set a Basic credential (password via stdin) | `tektona secret set <key> --type basic --username <name>` (both halves rotate together) |
 | List secrets (keys only) | `tektona secret ls [folder] [--query TEXT] [--scope all\|project\|personal\|org]` (one folder level; `--query` searches every depth) |
 | Delete a secret | `tektona secret rm <full-key> [--scope ...]` |
 | List egress proxy profiles | `tektona egress-proxy ls` (alias `egress`) |
