@@ -8,6 +8,7 @@ Read this to install the CLI, authenticate, pick the org and project, or manage 
 - Install
 - Authenticate
 - Set context (org + project)
+- Pass the context to SDKs and scripts
 - Manage orgs and projects
 
 ## Commands
@@ -23,6 +24,7 @@ Read this to install the CLI, authenticate, pick the org and project, or manage 
 | Create project | `tektona project create <name> --org <slug> --display-name <label> [--description <d>]` (alias `p new`) |
 | Update project | `tektona project update <project> --org <slug> [--display-name <l>] [--description <d>]` |
 | Switch context | `tektona ctx set <org/project>` (copy a CONTEXT value from `project ls`) |
+| Run code with the context | `tektona env -- <command>` (or `eval "$(tektona env)"`) |
 
 Add `-o json` to most commands for machine-readable output. Aliases:
 `sandbox` → `s`, `org` → `o`/`orgs`, `project` → `p`/`proj`/`projects`, `create` → `c`/`new`,
@@ -88,6 +90,33 @@ tektona project ls --org acme-corp # filter to one org
 tektona project ls -o json         # machine-readable
 tektona ctx set acme-corp/backend  # paste a value from the CONTEXT column
 ```
+
+## Pass the context to SDKs and scripts
+
+The SDKs read `TEKTONA_API_KEY`, `TEKTONA_API_URL`, `TEKTONA_ORG` and
+`TEKTONA_PROJECT`. `tektona env` resolves them exactly like every other
+command (flags → env → repo-local file → global config), so code uses the
+same org and project as the CLI in that folder.
+
+```sh
+tektona env -- npm start                    # run one command with the variables; prints nothing
+tektona env --project staging -- npm test   # flags override as usual
+eval "$(tektona env)"                       # set them in the current shell (bash, zsh)
+tektona env --shell fish | source           # fish
+tektona env --shell powershell | Invoke-Expression   # PowerShell (Windows)
+```
+
+- **`--` for one command, scripts, CI and agents.** The key goes only into
+  that process's environment and never appears in output. **`eval` for an
+  interactive shell** where you run many commands with the same context.
+- `tektona env` alone only prints `export` lines. A program cannot change the
+  shell that started it, so use `eval` or `--`.
+- In a terminal the key is masked. The full key is printed only into a pipe.
+  A pipe into `tee` or a log, and `set -x`, show it: use `--` in scripts and CI.
+- After `eval`, the variables override the repo-local `.tektona/config.json`
+  for every later command in that shell. Prefer `--` when you switch projects.
+- The exit code of `<command>` is passed on, so `tektona env -- …` works in
+  scripts and CI.
 
 ## Manage orgs and projects
 

@@ -108,7 +108,10 @@ reuse it.
 (`~/.config/tektona/api_key`) or the repo-local `.tektona/config.json` that
 `tektona ctx set` writes. A script that works after `tektona login` fails under
 the SDK until you export `TEKTONA_API_KEY` (and usually `TEKTONA_ORG` /
-`TEKTONA_PROJECT`).
+`TEKTONA_PROJECT`). The CLI can set them from its resolved context for that
+folder: run one command with `tektona env -- npx tsx main.ts`, or set them in
+the current shell with `eval "$(tektona env)"`. In an agent session use `--`,
+because each tool call often starts a new shell.
 
 ### Scope — org and project
 
@@ -559,8 +562,8 @@ detail rather than a typed `TektonaError`.
 - **Set the scope.** Pass `org`/`project` to the constructor, or on each call.
   Most "not found" errors are a wrong scope, not a missing resource — read a 404
   as a scope question first.
-- **Export `TEKTONA_API_KEY`.** The SDK ignores the CLI's stored credentials and
-  its `.tektona/config.json`.
+- **Export `TEKTONA_API_KEY`, or use `tektona env -- <command>` / `eval "$(tektona env)"`.** The SDK
+  ignores the CLI's stored credentials and its `.tektona/config.json`.
 - **Open the gate before you expect egress.** The default gate is restrictive.
   Pass `egress_network_policy: 'tektona/open'` at create, or list the project's
   policies to find one that allows what you need.

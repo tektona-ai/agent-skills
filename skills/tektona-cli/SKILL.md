@@ -16,7 +16,7 @@ processes — load the `tektonactl` skill for that. From TypeScript code, load
 
 | Task | Read |
 |---|---|
-| Install, authenticate, set org/project context, manage orgs, projects, roles | [references/setup.md](references/setup.md) |
+| Install, authenticate, set org/project context, pass the context to SDK code (`tektona env`), manage orgs, projects, roles | [references/setup.md](references/setup.md) |
 | Pick a template, build one from an image or a manifest, share with the org, tags, versions, build logs | [references/templates.md](references/templates.md) |
 | Create, wait, desktop/VNC, screenshot, fork, tags, pause/resume, lifecycle, sharing, ownership | [references/sandboxes.md](references/sandboxes.md) |
 | SSH, run commands and background processes, copy files, port forward, preview URLs | [references/files-and-processes.md](references/files-and-processes.md) |
@@ -76,6 +76,12 @@ Secret folders, AWS, rule scopes, TLS trust and a rule that does not fire:
 - **Set the context first.** Most "not found" errors are a wrong org or
   project, not a missing resource. `tektona ctx show` names the source of each
   value.
+- **Give SDK code the CLI's context with `tektona env -- <command>`.** For
+  example `tektona env -- npm start`. It sets `TEKTONA_API_KEY`,
+  `TEKTONA_API_URL`, `TEKTONA_ORG` and `TEKTONA_PROJECT` for that command only
+  and prints nothing. Use it, not `eval "$(tektona env)"`: each tool call
+  often starts a new shell, so an earlier `eval` is gone. Never print the API
+  key or copy it into a file or chat.
 - **Pass every input as a flag.** Agents take the non-interactive path, so
   nothing prompts. `tektona login` only prompts; use `api-key set` and
   `ctx set`.
