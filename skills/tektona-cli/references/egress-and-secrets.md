@@ -39,6 +39,7 @@ a treatment that injects your key there.
 | Show a proxy profile + rules | `tektona egress-proxy show <name>` |
 | Create a proxy profile | `tektona egress-proxy apply <name> [--scope project\|org] [--default]` (`--default` is project-scope only) |
 | Add an inject rule | `tektona egress-proxy rule add <name> --host <domain> --header 'NAME=TEMPLATE' [--port <port>]...` (default port 443) |
+| Add a Basic auth rule from a basic secret | `tektona egress-proxy rule add <name> --host <domain> --basic-secret <key>` (combines with `--header`) |
 | Add an AWS signing rule | `tektona egress-proxy rule add <name> --host <domain> --aws-region <region> --aws-service <svc> --aws-secret <key>` (one rule per service) |
 | Remove an inject rule | `tektona egress-proxy rule rm <name> <rule-id>` (rule ids from `show`) |
 | Attach/switch a proxy profile on an existing sandbox | `tektona sandbox egress-proxy set <id> <profile>` |
